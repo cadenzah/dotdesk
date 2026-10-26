@@ -21,6 +21,11 @@ open build/DotDesk.app
 
 실제 에이전트 없이 보고 싶으면 메뉴바의 **데모 에이전트**를 켜거나 `scripts/simulate-agent.sh`를 실행하세요.
 
+### 지우기
+
+1. 설정 **연동** 탭에서 각 설정 폴더의 **훅 제거**를 눌러요. `dotdesk-hook`이 들어간 항목만 지워져요.
+2. 앱을 끝내고 `DotDesk.app`, `~/.dotdesk`(릴레이 스크립트·토큰), `~/Library/Application Support/DotDesk`(설정)를 지우면 돼요.
+
 ## 동작 방식
 
 ```
@@ -52,8 +57,10 @@ Codex 세션 기록(~/.codex/sessions/**/rollout-*.jsonl) ───────�
 ## 에셋과 라이선스
 
 - DotDesk 코드와 기본 도트 캐릭터·가구는 직접 그린 것으로 [MIT 라이선스](LICENSE)예요.
-- **Pixel Agents 에셋**은 앱에 포함하지 않아요. VS Code(또는 Cursor 등)에 설치된 Pixel Agents 확장 프로그램 폴더에서 읽어요. Pixel Agents는 MIT이고, 캐릭터는 [JIK-A-4의 MetroCity 팩(CC0)](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack)을 바탕으로 해요.
-- **포켓몬 스프라이트**는 Nintendo/Game Freak/The Pokémon Company의 저작물이라 앱에 포함하지 않아요. PokeTokenBar가 내려받아 둔 로컬 파일(`~/Library/Application Support/PokeTokenBar/sprites`)을 그대로 읽어요.
+- **Pixel Agents 에셋**은 앱에 포함하지 않아요. VS Code(또는 Cursor·Windsurf)에 설치된 Pixel Agents 확장 프로그램 폴더에서 캐릭터와 일부 가구(책상·화분·소파·시계)를 읽어요. 가구는 설정에서 끌 수 있어요. Pixel Agents는 MIT이고, 캐릭터는 [JIK-A-4의 MetroCity 팩(CC0)](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack)을 바탕으로 해요.
+- **포켓몬 스프라이트**는 Nintendo/Game Freak/The Pokémon Company의 저작물이라 앱에 포함하지 않아요. PokeTokenBar가 [PokeAPI/sprites](https://github.com/PokeAPI/sprites)에서 내려받아 둔 로컬 파일(`~/Library/Application Support/PokeTokenBar/sprites`)을 그대로 읽어요. 개인적·비상업적 용도로만 써 주세요.
+
+DotDesk는 비공식 개인 프로젝트예요. Anthropic, OpenAI, Nintendo, Game Freak, Creatures Inc., The Pokémon Company와 관련이 없고 이들의 보증을 받지 않았어요. Claude, Codex, Pokémon 등의 상표는 각 소유자의 것이에요.
 - 다른 캐릭터 시트를 쓰려면 Pixel Agents 형식(16×32 프레임, 행: 아래/위/오른쪽, 열: 걷기1·서기·걷기2·타이핑1·타이핑2·읽기1·읽기2)의 `characters/char_N.png`가 든 폴더를 설정에서 지정하면 돼요.
 
 ## 개발
