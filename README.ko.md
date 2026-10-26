@@ -8,7 +8,7 @@
 - **사무실 창** — 화면 구석의 작은 창에 여러 에이전트가 프로젝트별 구역으로 나뉘어 앉아 일해요. 모니터 화면도 하는 일에 따라 바뀌고, 서브에이전트는 책상 앞에 팀원으로 나타나요. 한동안 조용하면 라운지 소파로 가서 자요.
 - **권한 요청 응답** — 에이전트 창으로 가지 않고 펫 말풍선에서 허용/거부하거나, 자동 허용(바이패스)할 수 있어요. 자동 허용이어도 `rm -rf` 같은 위험한 명령은 따로 물어볼 수 있어요.
 - **여러 계정·조직 구분** — `CLAUDE_CONFIG_DIR`/`CODEX_HOME`별 로그인 계정을 읽어서 책상 깃발 색과 이름표로 구분해요.
-- **캐릭터 고르기** — 기본 도트 캐릭터 8종, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) 캐릭터, [PokeTokenBar](https://github.com/chattymin/PokeTokenBar)에서 모은 포켓몬 중에서 에이전트·프로젝트별로 고를 수 있어요.
+- **캐릭터 고르기** — 새 에이전트마다 머리와 옷을 무작위로 조합해요. 기본 도트 프리셋 8종, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) 캐릭터, [PokeTokenBar](https://github.com/chattymin/PokeTokenBar)에서 모은 포켓몬 중에서 에이전트·프로젝트별로 고를 수 있어요.
 
 ## 설치
 

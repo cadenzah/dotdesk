@@ -8,7 +8,7 @@ A macOS app that shows the AI coding agents working on your Mac (Claude Code, Co
 - **Office window** — In a small window in the corner of your screen, agents sit and work in areas grouped by project. Their monitors change with what they're doing, and subagents appear as teammates in front of the desk. After a while of inactivity, they head to the lounge sofa and fall asleep.
 - **Answer permission requests** — Allow or deny from the pet's speech bubble without switching to the agent's window, or auto-approve (bypass). Even with auto-approve on, DotDesk can still ask you about dangerous commands like `rm -rf`.
 - **Multiple accounts and organizations** — Reads the signed-in account for each `CLAUDE_CONFIG_DIR`/`CODEX_HOME` and tells them apart with desk flag colors and name tags.
-- **Pick your characters** — Choose per agent or per project from 8 built-in pixel characters, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) characters, or the Pokémon collected by [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).
+- **Pick your characters** — Each new agent gets a random mix of hair and outfit. Or choose per agent or per project from 8 built-in pixel presets, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) characters, or the Pokémon collected by [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).
 
 > The app's UI is currently in Korean. Labels below are quoted as they appear in the app, with an English translation in parentheses.
 

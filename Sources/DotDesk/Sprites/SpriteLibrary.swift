@@ -189,12 +189,24 @@ final class SpriteLibrary: ObservableObject {
     /// Picks a default character for a new session from the configured source, avoiding ones already on screen.
     /// Built-in characters are assembled from random parts seeded by the session, so a session keeps its look.
     func autoCharacter(seed: String, avoiding used: Set<String>) -> String {
-        guard let pool = autoPool() else { return BuiltinCharacters.mixRef(stableHash("look:" + seed)) }
+        guard let pool = autoPool() else { return mixCharacter(seed: seed, avoiding: used) }
         let start = Int(stableHash(seed) % UInt64(pool.count))
         for i in 0..<pool.count where !used.contains(pool[(start + i) % pool.count]) {
             return pool[(start + i) % pool.count]
         }
         return pool[start]
+    }
+
+    /// Re-rolls while the hair style and outfit match someone already on screen.
+    private func mixCharacter(seed: String, avoiding used: Set<String>) -> String {
+        let taken = Set(used.compactMap(BuiltinCharacters.mixSeed).map { BuiltinCharacters.randomLook(seed: $0).name })
+        var ref = BuiltinCharacters.mixRef(stableHash("look:" + seed))
+        var attempt = 0
+        while attempt < 20, taken.contains(displayName(ref)) {
+            attempt += 1
+            ref = BuiltinCharacters.mixRef(stableHash("look:\(seed)#\(attempt)"))
+        }
+        return ref
     }
 
     private func autoPool() -> [String]? {
