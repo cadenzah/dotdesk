@@ -13,6 +13,7 @@ final class PetModel: ObservableObject {
     @Published var showSpeech = false
     @Published var hovering = false
     @Published var permissions: [PendingPermission] = []
+    @Published var usage: ContextUsage?
 }
 
 /// One floating character on the desktop. `sessionKey == nil` means "follow the most recently active agent".
@@ -128,6 +129,10 @@ final class PetController: NSObject {
             model.title = "쉬는 중"
             model.subtitle = "일하는 에이전트가 없어요"
         }
+        let usage = settings.s.showContextGauge ? s?.usage : nil
+        if model.usage != usage { model.usage = usage }
+        let sweating = s.flatMap(settings.contextFraction).map { $0 >= 0.8 } ?? false
+            && activity != .sleeping && activity != .compacting
         model.showSpeech = model.permissions.isEmpty
             && (model.hovering || (settings.s.pet.showSpeech && (Date() < speechUntil || activity.needsUser)))
 
@@ -209,6 +214,7 @@ final class PetController: NSObject {
             let r = rest.offsetBy(dx: 0, dy: bounce)
             p.image(img, r.minX, r.minY, flipX: flip)
             if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: true, tick: tick / 2) }
+            if sweating { OfficeArt.sweat(p, r, sheet: true, tick: tick / 2) }
             // Anchor the bubble to the resting position so it doesn't bob along with the sprite.
             if let icon, !walking { p.image(icon.bubble, rest.midX - 1, rest.minY - 6) }
             model.frame = p.makeImage()
@@ -223,6 +229,7 @@ final class PetController: NSObject {
             let r = rest.offsetBy(dx: 0, dy: bounce * 2)
             p.image(img, r.minX, r.minY, w, h, flipX: flip)
             if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: false, tick: tick / 2) }
+            if sweating { OfficeArt.sweat(p, r, sheet: false, tick: tick / 2) }
             // Anchor the bubble to the resting position so it doesn't bob along with the sprite.
             if let icon, !walking { p.image(icon.bubble, rest.midX + 4, max(0, rest.minY - 14), 30, 28) }
             model.frame = p.makeImage()
@@ -394,6 +401,9 @@ struct PetView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.title).font(.system(size: 11, weight: .semibold))
                     Text(model.subtitle).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(2)
+                    if let u = model.usage, u.contextTokens != nil {
+                        ContextGauge(usage: u).padding(.top, 2)
+                    }
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .background(RoundedRectangle(cornerRadius: 8).fill(.regularMaterial))
@@ -530,5 +540,35 @@ struct PermissionCard: View {
         .frame(width: compact ? 260 : nil)
         .background(RoundedRectangle(cornerRadius: 10).fill(.regularMaterial))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange.opacity(0.7), lineWidth: 1.5))
+    }
+}
+
+/// A small bar showing how full an agent's context is, with the token count.
+struct ContextGauge: View {
+    let usage: ContextUsage
+    var compact = false
+    @ObservedObject private var settings = SettingsStore.shared
+
+    var body: some View {
+        let window = usage.window(settings.s.contextWindow)
+        let f = usage.fraction(settings.s.contextWindow) ?? 0
+        HStack(spacing: 5) {
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.12))
+                    Capsule().fill(Self.color(f)).frame(width: max(2, g.size.width * f))
+                }
+            }
+            .frame(width: compact ? nil : 70, height: compact ? 3 : 4)
+            if !compact {
+                Text("컨텍스트 \(Int((f * 100).rounded()))% · \(formatTokens(usage.contextTokens ?? 0))/\(formatTokens(window))")
+                    .font(.system(size: 9).monospacedDigit()).foregroundStyle(.secondary)
+            }
+        }
+        .help("컨텍스트 \(formatTokens(usage.contextTokens ?? 0)) / \(formatTokens(window)) · 이번 세션 출력 \(formatTokens(usage.outputTokens)) 토큰")
+    }
+
+    static func color(_ f: Double) -> Color {
+        f >= 0.8 ? .red : f >= 0.6 ? .orange : .green
     }
 }

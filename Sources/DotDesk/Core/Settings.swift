@@ -102,6 +102,9 @@ struct AppSettings: Codable {
     var claudeConfigDirs: [String] = ["~/.claude"]
     var codexHomes: [String] = ["~/.codex"]
     var watchCodexRollouts = true
+    /// Claude's context window: 0 guesses from the model and what has been seen, else 200_000 or 1_000_000.
+    var contextWindow = 0
+    var showContextGauge = true
     var sleepAfterMinutes: Double = 5
     var forgetAfterMinutes: Double = 240
 }
@@ -179,6 +182,11 @@ final class SettingsStore: ObservableObject {
     func accountColor(_ a: AccountInfo) -> RGBA {
         if let hex = s.accounts[a.key]?.colorHex, let c = RGBA(hex: hex) { return c }
         return Palette.account[Int(stableHash(a.key) % UInt64(Palette.account.count))]
+    }
+
+    /// How full the session's context is (0...1), or nil when unknown.
+    func contextFraction(_ s: AgentSession) -> Double? {
+        s.usage?.fraction(self.s.contextWindow)
     }
 
     func permissionMode(forProject key: String) -> PermissionMode {

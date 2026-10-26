@@ -84,6 +84,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
              "origin": [
                  "pid": s.origin?.pid.map(String.init), "app": s.origin?.appBundleId,
                  "appPid": s.origin?.appPid.map(String.init), "tty": s.origin?.tty, "tmuxPane": s.origin?.tmuxPane,
+             ].compactMapValues { $0 },
+             "usage": [
+                 "context": s.usage?.contextTokens.map(String.init),
+                 "window": s.usage.map { String($0.window(SettingsStore.shared.s.contextWindow)) },
+                 "output": s.usage.map { String($0.outputTokens) }, "model": s.usage?.model,
              ].compactMapValues { $0 }]
         }
         if let data = try? JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys]) {
@@ -143,6 +148,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let sub = NSMenu()
             if let a = s.account { sub.addItem(withTitle: settings.accountLabel(a), action: nil, keyEquivalent: "").isEnabled = false }
             if !s.detail.isEmpty { sub.addItem(withTitle: s.detail, action: nil, keyEquivalent: "").isEnabled = false }
+            if let u = s.usage, let tokens = u.contextTokens, let f = settings.contextFraction(s) {
+                let window = u.window(settings.s.contextWindow)
+                sub.addItem(withTitle: "컨텍스트 \(Int((f * 100).rounded()))% (\(formatTokens(tokens))/\(formatTokens(window)))",
+                            action: nil, keyEquivalent: "").isEnabled = false
+            }
             sub.addItem(.separator())
             if WindowFocuser.canFocus(s) {
                 sub.addItem(MenuAction("에이전트 창으로 가기") { WindowFocuser.focusOrBeep(s) })

@@ -83,6 +83,7 @@ final class CodexRolloutWatcher {
         if catchingUp, let sid = t.sessionId {
             store.applyRollout(sessionId: sid, cwd: t.cwd, home: home) { _ in }
         }
+        if let sid = t.sessionId { UsageReader.shared.follow(sessionKey: "codex:\(sid)", path: path) }
         tails[path] = t
     }
 

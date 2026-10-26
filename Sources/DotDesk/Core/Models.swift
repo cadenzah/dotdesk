@@ -14,7 +14,7 @@ enum Provider: String, Codable, CaseIterable {
 /// What a character is doing right now. Drives pose, bubble icon and office placement.
 enum Activity: String, Codable {
     case idle, thinking, reading, searching, typing, running, browsing
-    case delegating, planning, tool, waitingPermission, waitingInput
+    case delegating, planning, tool, compacting, waitingPermission, waitingInput
     case done, sleeping, leaving
 
     var label: String {
@@ -29,6 +29,7 @@ enum Activity: String, Codable {
         case .delegating: return "팀원 호출 중"
         case .planning: return "계획 중"
         case .tool: return "도구 사용 중"
+        case .compacting: return "대화 정리 중"
         case .waitingPermission: return "허락을 기다려요"
         case .waitingInput: return "질문이 있어요"
         case .done: return "완료!"
@@ -40,7 +41,7 @@ enum Activity: String, Codable {
     /// Agent is busy (not waiting on the user and not resting).
     var isWorking: Bool {
         switch self {
-        case .thinking, .reading, .searching, .typing, .running, .browsing, .delegating, .planning, .tool:
+        case .thinking, .reading, .searching, .typing, .running, .browsing, .delegating, .planning, .tool, .compacting:
             return true
         default:
             return false
@@ -51,7 +52,7 @@ enum Activity: String, Codable {
 
     var pose: Pose {
         switch self {
-        case .typing, .running, .delegating, .tool, .planning: return .type
+        case .typing, .running, .delegating, .tool, .planning, .compacting: return .type
         case .reading, .searching, .browsing: return .read
         case .sleeping: return .sleep
         case .done: return .cheer
@@ -71,6 +72,7 @@ enum Activity: String, Codable {
         case .delegating: return .people
         case .planning: return .checklist
         case .tool: return .wrench
+        case .compacting: return .box
         case .waitingPermission: return .exclaim
         case .waitingInput: return .question
         case .done: return .check
@@ -82,6 +84,30 @@ enum Activity: String, Codable {
 
 enum Pose { case stand, walk, type, read, sleep, sit, nap, cheer }
 enum Facing { case down, up, right, left }
+
+/// How full the agent's context window is, read from its transcript.
+struct ContextUsage: Equatable {
+    /// Tokens in the latest request (prompt plus reply). Nil right after compaction until the next reply.
+    var contextTokens: Int?
+    /// From Codex's own report; nil for Claude, whose window is guessed (see `window(settings:)`).
+    var reportedWindow: Int?
+    var model: String?
+    /// Largest context seen, to tell a 1M window from a 200K one.
+    var peakTokens = 0
+    /// Tokens generated over the whole session.
+    var outputTokens = 0
+
+    func window(_ setting: Int) -> Int {
+        if let w = reportedWindow, w > 0 { return w }
+        if setting > 0 { return setting }
+        if model?.contains("[1m]") == true || peakTokens > 200_000 { return 1_000_000 }
+        return 200_000
+    }
+
+    func fraction(_ setting: Int) -> Double? {
+        contextTokens.map { min(1, Double($0) / Double(window(setting))) }
+    }
+}
 
 struct LogEntry: Identifiable {
     let id = UUID()
@@ -114,6 +140,7 @@ struct AgentSession: Identifiable {
     var doneUntil: Date?
     var subagents: [SubAgent] = []
     var log: [LogEntry] = []
+    var usage: ContextUsage?
     var viaHooks = false
     var origin: SessionOrigin?
     var autoAllowThisSession = false

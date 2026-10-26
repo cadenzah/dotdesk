@@ -3,7 +3,7 @@ import CoreGraphics
 /// 7x7 activity icons shown in a speech bubble above characters.
 enum PixelIcon: CaseIterable {
     case dots, book, magnifier, pencil, terminal, globe, people, checklist, wrench, exclaim, question, check, zzz
-    case coffee, droplet, game, sun, moon, sparkle, talk
+    case coffee, droplet, game, sun, moon, sparkle, talk, box
 
     private var art: ([String], [Character: RGBA]) {
         switch self {
@@ -64,6 +64,9 @@ enum PixelIcon: CaseIterable {
         case .talk:
             return ([".......", "#####..", ".......", "######.", ".......", "###.##.", "......."],
                     ["#": RGBA(0xf06595)])
+        case .box:
+            return ([".o.o...", ".oooo..", "#######", "#xxxxx#", "#x###x#", "#xxxxx#", "#######"],
+                    ["#": RGBA(0x8b5a2b), "x": RGBA(0xc8a27a), "o": RGBA(0xfff3d6)])
         case .sparkle:
             return (["...#...", "...#...", "..#o#..", "##ooo##", "..#o#..", "...#...", "...#..."],
                     ["#": RGBA(0x22b8cf), "o": RGBA(0x99e9f2)])

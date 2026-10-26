@@ -116,14 +116,19 @@ struct OfficeView: View {
                             .popover(isPresented: Binding(get: { selected == h.sessionKey }, set: { if !$0 { selected = nil } })) {
                                 SessionDetail(sessionKey: h.sessionKey, restLabel: h.label)
                             }
-                        Text(store.nickname(s))
-                            .font(.system(size: max(8, 4.2 * scale), weight: .medium))
-                            .foregroundStyle(Color(white: 0.15))
-                            .lineLimit(1)
-                            .fixedSize()
-                            .frame(width: OfficeLayout.deskW * scale)
-                            .offset(x: ox + (h.nameAnchor.x - OfficeLayout.deskW / 2) * scale, y: oy + h.nameAnchor.y * scale - 6)
-                            .allowsHitTesting(false)
+                        VStack(spacing: 1) {
+                            Text(store.nickname(s))
+                                .font(.system(size: max(8, 4.2 * scale), weight: .medium))
+                                .foregroundStyle(Color(white: 0.15))
+                                .lineLimit(1)
+                                .fixedSize()
+                            if settings.s.showContextGauge, let u = s.usage, u.contextTokens != nil {
+                                ContextGauge(usage: u, compact: true).frame(width: OfficeLayout.deskW * scale * 0.4)
+                            }
+                        }
+                        .frame(width: OfficeLayout.deskW * scale)
+                        .offset(x: ox + (h.nameAnchor.x - OfficeLayout.deskW / 2) * scale, y: oy + h.nameAnchor.y * scale - 6)
+                        .allowsHitTesting(false)
                     }
                 }
                 if store.sessions.isEmpty {
@@ -246,7 +251,14 @@ struct SessionDetail: View {
                         GridRow { Text("계정").foregroundStyle(.secondary); Text("\(settings.accountLabel(a))\(a.email.map { " (\($0))" } ?? "")") }
                     }
                     if let cwd = s.cwd { GridRow { Text("폴더").foregroundStyle(.secondary); Text(abbreviatePath(cwd)).lineLimit(1).truncationMode(.middle) } }
-                    if let m = s.model { GridRow { Text("모델").foregroundStyle(.secondary); Text(m) } }
+                    if let m = s.model ?? s.usage?.model { GridRow { Text("모델").foregroundStyle(.secondary); Text(m) } }
+                    if let u = s.usage, u.contextTokens != nil || u.outputTokens > 0 {
+                        GridRow {
+                            Text("컨텍스트").foregroundStyle(.secondary)
+                            if u.contextTokens != nil { ContextGauge(usage: u) } else { Text("정리한 뒤 다시 세는 중") }
+                        }
+                        GridRow { Text("출력 토큰").foregroundStyle(.secondary); Text(formatTokens(u.outputTokens)) }
+                    }
                     if !s.subagents.isEmpty {
                         GridRow { Text("팀원").foregroundStyle(.secondary); Text(s.subagents.map { "\($0.type)(\($0.activity.label))" }.joined(separator: ", ")) }
                     }

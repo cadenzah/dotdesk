@@ -78,6 +78,16 @@ struct GeneralTab: View {
                 Toggle("항상 위에 띄우기", isOn: $settings.s.office.alwaysOnTop)
                 Toggle("에이전트가 없으면 자동으로 숨기기", isOn: $settings.s.office.autoHide)
             }
+            Section("컨텍스트") {
+                Toggle("컨텍스트 게이지 보이기", isOn: $settings.s.showContextGauge)
+                Picker("Claude 컨텍스트 크기", selection: $settings.s.contextWindow) {
+                    Text("자동").tag(0)
+                    Text("200K").tag(200_000)
+                    Text("1M").tag(1_000_000)
+                }
+                Text("대화 기록 파일에서 마지막 응답의 토큰 수를 읽어요. 자동은 모델 이름에 [1m]이 있거나 20만 토큰을 넘긴 적이 있으면 1M으로 봐요. 80%를 넘으면 캐릭터가 땀을 흘리고, 대화를 정리하는 동안에는 상자에 짐을 싸요.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("시간") {
                 Stepper("\(Int(settings.s.sleepAfterMinutes))분 동안 소식이 없으면 잠들기", value: $settings.s.sleepAfterMinutes, in: 1...60)
                 Stepper("\(Int(settings.s.forgetAfterMinutes / 60))시간 동안 소식이 없으면 퇴근", value: $settings.s.forgetAfterMinutes, in: 60...1440, step: 60)

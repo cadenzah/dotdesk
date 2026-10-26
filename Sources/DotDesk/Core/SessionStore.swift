@@ -85,6 +85,10 @@ final class SessionStore: ObservableObject {
             settings.rememberAccount(acc)
         }
 
+        if let path = j["transcript_path"] as? String, !path.isEmpty, req.event != "SessionEnd" {
+            UsageReader.shared.follow(sessionKey: key, path: path)
+        }
+
         let agentId = j["agent_id"] as? String
         let agentType = j["agent_type"] as? String
         let toolName = j["tool_name"] as? String ?? ""
@@ -93,7 +97,7 @@ final class SessionStore: ObservableObject {
 
         switch req.event {
         case "SessionStart":
-            if s.activity == .leaving || s.activity == .sleeping { s.setActivity(.idle) }
+            if s.activity == .leaving || s.activity == .sleeping || s.activity == .compacting { s.setActivity(.idle, detail: "") }
             s.addLog("세션 시작 (\(j["source"] as? String ?? "startup"))")
         case "UserPromptSubmit":
             var prompt = j["prompt"] as? String ?? ""
@@ -153,11 +157,14 @@ final class SessionStore: ObservableObject {
             s.subagents.removeAll { $0.id == agentId }
             s.addLog("팀원 복귀 · \(agentType ?? "subagent")")
         case "PreCompact":
-            s.setActivity(.thinking, detail: "대화 정리 중")
+            let auto = (j["trigger"] as? String) == "auto"
+            s.setActivity(.compacting, detail: auto ? "컨텍스트가 차서 정리 중" : "")
+            s.addLog(auto ? "컨텍스트가 차서 대화를 정리해요" : "대화 정리")
         case "SessionEnd":
             s.setActivity(.leaving, detail: "")
             s.subagents.removeAll()
             s.addLog("세션 종료")
+            UsageReader.shared.forget(key)
             release(s)
             dropPermissions(for: key)
         default:
@@ -165,6 +172,11 @@ final class SessionStore: ObservableObject {
         }
         sessions[key] = s
         if replyNow { responder.reply() }
+    }
+
+    func setUsage(_ key: String, _ usage: ContextUsage) {
+        guard sessions[key] != nil, sessions[key]?.usage != usage else { return }
+        sessions[key]?.usage = usage
     }
 
     /// Activity reported from a Codex rollout file. Ignored once that session reports through hooks.

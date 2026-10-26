@@ -130,6 +130,12 @@ enum OfficeArt {
             p.fill(sx, sy, sw, sh, RGBA(0xe7f5ff))
             p.fill(sx, sy, sw, 2, RGBA(0x4dabf7))
             p.fill(sx + 2, sy + 4, 6, 4, RGBA(0xa5d8ff)); p.fill(sx + 9, sy + 4, 3, 1, RGBA(0xadb5bd)); p.fill(sx + 9, sy + 6, 3, 1, RGBA(0xadb5bd))
+        case .compacting:
+            // Lines squeezing together into a shrinking block.
+            p.fill(sx, sy, sw, sh, RGBA(0x1e2233))
+            let squeeze = CGFloat(tick / 3 % 5)
+            for i in 0..<3 { p.fill(sx + 1 + squeeze, sy + 2 + CGFloat(i * 2), sw - 2 - squeeze * 2, 1, RGBA(0xc8a27a)) }
+            p.fill(sx + 1, sy + 8, 12, 1, RGBA(0x495057)); p.fill(sx + 1, sy + 8, CGFloat(tick / 2 % 13), 1, RGBA(0xffd43b))
         case .thinking:
             p.fill(sx, sy, sw, sh, RGBA(0x1e2233))
             if tick / 4 % 2 == 0 { p.fill(sx + 2, sy + 7, 2, 2, RGBA(0xf8f9fa)) }
@@ -142,6 +148,15 @@ enum OfficeArt {
         default:
             p.fill(sx, sy, sw, sh, accent.mix(RGBA(0x1e2233), 0.7))
         }
+    }
+
+    /// A drop of sweat sliding down beside the head, for an agent whose context is nearly full.
+    static func sweat(_ p: PixelContext, _ r: CGRect, sheet: Bool, tick: Int) {
+        let x = sheet ? r.maxX - 3 : r.maxX - 4
+        let y = (sheet ? r.minY + 9 : r.minY + 3) + CGFloat(tick / 4 % 5)
+        p.fill(x, y, 1, 1, RGBA(0xd0ebff))
+        p.fill(x - 1, y + 1, 3, 2, RGBA(0x74c0fc))
+        p.fill(x, y + 1, 1, 1, RGBA(0xffffff))
     }
 
     static func flag(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, _ color: RGBA) {
