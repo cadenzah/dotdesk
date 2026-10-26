@@ -184,14 +184,17 @@ struct CharacterThumb: View {
     let ref: String
     var shirt = RGBA(0x4dabf7)
     var size: CGFloat = 40
+    var pose = Pose.stand
+    var tick = 0
 
     var body: some View {
         let skin = SpriteLibrary.shared.skin(for: ref, shirt: shirt)
-        let (img, _) = skin.frame(facing: .down, pose: .stand, tick: 0)
+        let (img, flip) = skin.frame(facing: .down, pose: pose, tick: tick)
         Image(decorative: img, scale: 1)
             .resizable()
             .interpolation(skin.isSheet ? .none : .medium)
             .aspectRatio(contentMode: .fit)
+            .scaleEffect(x: flip ? -1 : 1)
             .frame(width: size, height: size * (skin.isSheet ? 1.6 : 1))
     }
 }

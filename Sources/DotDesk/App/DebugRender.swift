@@ -15,6 +15,8 @@ enum DebugRender {
         for (i, icon) in PixelIcon.allCases.enumerated() { icons.image(icon.bubble, CGFloat(i * 16), 0) }
         if let img = icons.makeImage() { write(img, scale: 6, to: out.appendingPathComponent("icons.png")) }
         renderOnboarding(to: out)
+        renderView(CharacterPicker(selection: CharacterSelection("builtin:2"), autoRef: "builtin:0", shirt: RGBA(0x4dabf7)),
+                   width: 320, to: out.appendingPathComponent("agent-edit.png"))
         renderOffice(to: out)
         for tab in SettingsTab.allCases {
             SettingsNavigation.shared.tab = tab

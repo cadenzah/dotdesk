@@ -221,36 +221,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.informativeText = "\(settings.projectName(s.projectKey)) · \(s.provider.displayName)"
         let name = NSTextField(string: settings.s.sessions[key]?.name ?? "")
         name.placeholderString = s.autoNickname
-        let picker = NSPopUpButton()
-        picker.addItem(withTitle: "자동 (\(SpriteLibrary.shared.displayName(s.autoCharacter)))")
-        picker.lastItem?.representedObject = nil
-        var group = ""
-        for c in SpriteLibrary.shared.choices {
-            if c.group != group {
-                group = c.group
-                picker.menu?.addItem(.separator())
-                picker.addItem(withTitle: "— \(group) —")
-                picker.lastItem?.isEnabled = false
-            }
-            picker.addItem(withTitle: c.name)
-            picker.lastItem?.representedObject = c.ref
-            if settings.s.sessions[key]?.character == c.ref { picker.select(picker.lastItem) }
-        }
-        picker.autoenablesItems = false
+        let selection = CharacterSelection(settings.s.sessions[key]?.character)
+        let picker = NSHostingView(rootView: CharacterPicker(
+            selection: selection,
+            autoRef: settings.s.projects[s.projectKey]?.character ?? s.autoCharacter,
+            shirt: settings.projectColor(s.projectKey)))
+        picker.setFrameSize(picker.fittingSize)
         let stack = NSStackView(views: [label("이름"), name, label("캐릭터"), picker])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 4
-        stack.frame = CGRect(x: 0, y: 0, width: 260, height: 100)
-        name.widthAnchor.constraint(equalToConstant: 260).isActive = true
+        name.widthAnchor.constraint(equalToConstant: picker.fittingSize.width).isActive = true
+        stack.setFrameSize(stack.fittingSize)
         alert.accessoryView = stack
         alert.addButton(withTitle: "저장")
         alert.addButton(withTitle: "취소")
         alert.window.initialFirstResponder = name
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let response = alert.runModal()
+        selection.stop()
+        guard response == .alertFirstButtonReturn else { return }
         var o = settings.s.sessions[key] ?? SessionOverride()
         o.name = name.stringValue.isEmpty ? nil : name.stringValue
-        o.character = picker.selectedItem?.representedObject as? String
+        o.character = selection.ref
         o.lastSeen = Date()
         settings.s.sessions[key] = o
         pruneSessionOverrides()
