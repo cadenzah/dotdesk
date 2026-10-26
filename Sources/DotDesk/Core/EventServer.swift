@@ -92,11 +92,14 @@ final class EventServer {
             guard let self else { return }
             var buf = buffer
             if let data { buf.append(data) }
-            if let req = HTTPRequest.parse(buf) {
+            switch HTTPRequest.parse(buf) {
+            case .complete(let req):
                 self.handle(req, on: c)
-            } else if isComplete || error != nil || buf.count > 64 << 20 {
+            case .invalid:
                 c.cancel()
-            } else {
+            case .incomplete where isComplete || error != nil || buf.count > HTTPRequest.maxSize:
+                c.cancel()
+            case .incomplete:
                 self.receive(c, buffer: buf)
             }
         }
@@ -146,22 +149,34 @@ private struct HTTPRequest {
     let headers: [String: String]
     let body: Data
 
-    static func parse(_ data: Data) -> HTTPRequest? {
+    /// Upper bound for headers plus body; hook payloads are far smaller.
+    static let maxSize = 64 << 20
+
+    enum ParseResult {
+        case incomplete
+        case invalid
+        case complete(HTTPRequest)
+    }
+
+    static func parse(_ data: Data) -> ParseResult {
         let sep = Data("\r\n\r\n".utf8)
-        guard let r = data.range(of: sep) else { return nil }
-        guard let head = String(data: data[data.startIndex..<r.lowerBound], encoding: .utf8) else { return nil }
+        guard let r = data.range(of: sep) else { return .incomplete }
+        guard let head = String(data: data[data.startIndex..<r.lowerBound], encoding: .utf8) else { return .invalid }
         let lines = head.components(separatedBy: "\r\n")
         let parts = lines.first?.split(separator: " ") ?? []
-        guard parts.count >= 2 else { return nil }
+        guard parts.count >= 2 else { return .invalid }
         var headers: [String: String] = [:]
         for line in lines.dropFirst() {
             guard let i = line.firstIndex(of: ":") else { continue }
             headers[line[..<i].lowercased()] = line[line.index(after: i)...].trimmingCharacters(in: .whitespaces)
         }
-        let length = Int(headers["content-length"] ?? "0") ?? 0
+        // Digits only: a negative or malformed length would otherwise build an invalid range and crash.
+        let lengthText = headers["content-length"] ?? "0"
+        guard !lengthText.isEmpty, lengthText.allSatisfy(\.isASCII), lengthText.allSatisfy(\.isNumber),
+              let length = Int(lengthText), length <= maxSize else { return .invalid }
         let bodyStart = r.upperBound
-        guard data.count - (bodyStart - data.startIndex) >= length else { return nil }
+        guard data.count - (bodyStart - data.startIndex) >= length else { return .incomplete }
         let body = data[bodyStart..<(bodyStart + length)]
-        return HTTPRequest(method: String(parts[0]), path: String(parts[1]), headers: headers, body: Data(body))
+        return .complete(HTTPRequest(method: String(parts[0]), path: String(parts[1]), headers: headers, body: Data(body)))
     }
 }
