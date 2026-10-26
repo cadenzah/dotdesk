@@ -54,4 +54,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "DotDesk ${{ steps.version.outputs.version }}" \
             --generate-notes \
-            --notes "Apple 공증을 받지 않은 앱이라 처음 열 때 macOS가 실행을 막아요. **시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기**로 한 번 허용하거나, 터미널에서 \`xattr -dr com.apple.quarantine /Applications/DotDesk.app\`을 실행하세요. 자세한 방법은 [처음 실행하기](https://github.com/cadenzah/dotdesk#처음-실행하기)를 보세요."
+            --notes "Apple 공증을 받지 않은 앱이라 처음 열 때 macOS가 실행을 막아요. **시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기**로 한 번 허용하거나, 터미널에서 \`xattr -dr com.apple.quarantine /Applications/DotDesk.app\`을 실행하세요. 자세한 방법은 [처음 실행하기](https://github.com/cadenzah/dotdesk/blob/main/README.ko.md#처음-실행하기)를 보세요."

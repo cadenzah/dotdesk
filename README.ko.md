@@ -104,10 +104,11 @@ Sources/DotDesk/
   UI/        펫, 사무실 시뮬레이션/렌더러, 설정 화면
 scripts/
   build-app.sh       .app 번들 만들기
+  bump-version.sh    커밋 접두어로 VERSION 올리기
   make-icon.sh       아이콘 다시 만들기
   simulate-agent.sh  가짜 Claude 세션 이벤트 보내기
 ```
 
 - `swift build && .build/debug/DotDesk --render-preview /tmp/dotdesk-preview` — 캐릭터 시트, 아이콘, 데모 사무실, 설정 화면을 PNG로 저장해요(화면 녹화 권한 없이 확인할 때 유용해요).
-- 릴리스: `VERSION` 파일의 버전을 올려 `main`에 push하면 GitHub Actions(`.github/workflows/release.yml`)가 앱을 빌드해서 `v<버전>` Release에 zip으로 올려요. 이미 올라간 버전이면 건너뛰어요.
+- 릴리스: `scripts/bump-version.sh`를 실행하면 마지막 릴리스 이후 커밋을 보고 `VERSION`을 올려서 커밋해요(`feat` → minor, `fix`·`perf` → patch, 나머지는 그대로. `patch`/`minor`/`major`/`X.Y.Z`로 직접 정하거나 `-n`으로 미리 볼 수 있어요). 그다음 `main`에 push하면 GitHub Actions(`.github/workflows/release.yml`)가 앱을 빌드해서 `v<버전>` Release에 zip으로 올려요. 이미 올라간 버전이면 건너뛰어요.
 - 앱이 실행 중일 때 `curl -X POST -H "X-DotDesk-Token: $(cat ~/.dotdesk/token)" http://127.0.0.1:$(cat ~/.dotdesk/port)/debug/snapshot`을 보내면 열린 창과 세션 상태를 `~/.dotdesk/snapshots/`에 저장해요.

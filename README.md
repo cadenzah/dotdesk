@@ -106,10 +106,11 @@ Sources/DotDesk/
   UI/        Pet, office simulation/renderer, settings screens
 scripts/
   build-app.sh       Build the .app bundle
+  bump-version.sh    Bump VERSION from commit prefixes
   make-icon.sh       Regenerate the icon
   simulate-agent.sh  Send fake Claude session events
 ```
 
 - `swift build && .build/debug/DotDesk --render-preview /tmp/dotdesk-preview` — Saves character sheets, icons, a demo office, and settings screens as PNGs (handy for checking without Screen Recording permission).
-- Releases: Bump the version in the `VERSION` file and push to `main`; GitHub Actions (`.github/workflows/release.yml`) builds the app and uploads it as a zip to the `v<version>` Release. Versions that are already released are skipped.
+- Releases: Run `scripts/bump-version.sh` to bump `VERSION` from the commits since the last release (`feat` → minor, `fix`/`perf` → patch, others → no bump; pass `patch`/`minor`/`major`/`X.Y.Z` to choose, `-n` to preview) and commit it. Then push to `main`; GitHub Actions (`.github/workflows/release.yml`) builds the app and uploads it as a zip to the `v<version>` Release. Versions that are already released are skipped.
 - While the app is running, `curl -X POST -H "X-DotDesk-Token: $(cat ~/.dotdesk/token)" http://127.0.0.1:$(cat ~/.dotdesk/port)/debug/snapshot` saves the open windows and session state to `~/.dotdesk/snapshots/`.
