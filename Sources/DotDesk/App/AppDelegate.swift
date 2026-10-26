@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var office: OfficeWindowController!
     private var codexWatcher = CodexRolloutWatcher()
     private var settingsWindow: NSWindow?
+    private var welcomeWindow: NSWindow?
+    private let integration = IntegrationStatus.shared
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -46,15 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
-        store.$sessions.combineLatest(store.$permissions)
+        store.$sessions.combineLatest(store.$permissions, integration.$claudeConnected)
             .throttle(for: .milliseconds(500), scheduler: RunLoop.main, latest: true)
             .sink { [weak self] _ in self?.updateStatusTitle() }
             .store(in: &cancellables)
 
-        if !HookInstaller.isInstalled(at: HookInstaller.claudeSettingsURL(configDir: "~/.claude")),
-           !UserDefaults.standard.bool(forKey: "didShowWelcome") {
+        if !integration.claudeConnected, !UserDefaults.standard.bool(forKey: "didShowWelcome") {
             UserDefaults.standard.set(true, forKey: "didShowWelcome")
-            showSettings(tab: .integrations)
+            showWelcome()
         }
     }
 
@@ -114,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateStatusTitle() {
         let working = store.sessions.values.filter { $0.activity.isWorking }.count
         let waiting = store.sessions.values.filter { $0.activity.needsUser }.count
-        var t = ""
+        var t = integration.claudeConnected ? "" : " ⚠︎"
         if working > 0 { t += " \(working)" }
         if waiting > 0 { t += " ✋\(waiting)" }
         statusItem.button?.title = t
@@ -122,6 +123,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        integration.refresh()
+        if !integration.claudeConnected {
+            menu.addItem(MenuAction("⚠︎ Claude Code와 연결되지 않았어요 — 연결하기…") { [weak self] in self?.showWelcome() })
+            menu.addItem(.separator())
+        }
         let sessions = store.activeSessions.filter { $0.activity != .leaving }
         if sessions.isEmpty {
             menu.addItem(withTitle: "일하는 에이전트가 없어요", action: nil, keyEquivalent: "").isEnabled = false
@@ -174,6 +180,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: Windows
+
+    func showWelcome() {
+        if welcomeWindow == nil {
+            let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 480, height: 460),
+                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            w.title = "DotDesk 시작하기"
+            w.isReleasedWhenClosed = false
+            let host = NSHostingView(rootView: WelcomeView { [weak w] in w?.close() })
+            w.contentView = host
+            w.setContentSize(host.fittingSize)
+            w.center()
+            welcomeWindow = w
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        welcomeWindow?.makeKeyAndOrderFront(nil)
+    }
 
     func showSettings(tab: SettingsTab?) {
         if let tab { SettingsNavigation.shared.tab = tab }

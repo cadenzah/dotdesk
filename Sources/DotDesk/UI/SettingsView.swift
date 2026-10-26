@@ -365,7 +365,7 @@ struct IntegrationsTab: View {
                     HookRow(title: abbreviatePath(expandPath(dir)), url: HookInstaller.claudeSettingsURL(configDir: dir), refresh: refresh,
                             install: { try HookInstaller.installClaude(configDir: dir) },
                             remove: dir == "~/.claude" ? nil : { settings.s.claudeConfigDirs.removeAll { $0 == dir } },
-                            message: $message, bump: { refresh += 1 })
+                            message: $message, bump: { refresh += 1; IntegrationStatus.shared.refresh() })
                 }
                 HStack {
                     TextField("다른 CLAUDE_CONFIG_DIR 추가", text: $newClaudeDir, prompt: Text("~/.claude-work"))
@@ -383,7 +383,7 @@ struct IntegrationsTab: View {
                     HookRow(title: abbreviatePath(expandPath(home)), url: HookInstaller.codexHooksURL(home: home), refresh: refresh,
                             install: { try HookInstaller.installCodex(home: home) },
                             remove: home == "~/.codex" ? nil : { settings.s.codexHomes.removeAll { $0 == home } },
-                            message: $message, bump: { refresh += 1 })
+                            message: $message, bump: { refresh += 1; IntegrationStatus.shared.refresh() })
                 }
                 HStack {
                     TextField("다른 CODEX_HOME 추가", text: $newCodexHome, prompt: Text("~/.codex-work"))

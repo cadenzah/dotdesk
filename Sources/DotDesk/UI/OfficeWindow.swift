@@ -72,6 +72,7 @@ struct OfficeView: View {
     @ObservedObject var sim: OfficeSimulation
     @ObservedObject private var store = SessionStore.shared
     @ObservedObject private var settings = SettingsStore.shared
+    @ObservedObject private var integration = IntegrationStatus.shared
     @State private var selected: String?
 
     var body: some View {
@@ -126,8 +127,22 @@ struct OfficeView: View {
                 }
                 if store.sessions.isEmpty {
                     VStack(spacing: 4) {
-                        Text("조용한 사무실").font(.headline)
-                        Text("에이전트가 일을 시작하면 출근해요").font(.caption).foregroundStyle(.secondary)
+                        if integration.claudeConnected {
+                            Text("조용한 사무실").font(.headline)
+                            Text("에이전트가 일을 시작하면 출근해요").font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text("아직 에이전트와 연결되지 않았어요").font(.headline)
+                            Text("훅을 설치하면 Claude Code가 일할 때 출근해요").font(.caption).foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                Button("Claude Code 연결하기") { integration.installClaude() }
+                                Button("자세히") { AppDelegate.shared?.showWelcome() }
+                            }
+                            .controlSize(.small)
+                            .padding(.top, 4)
+                            if let e = integration.lastError {
+                                Text(e).font(.caption2).foregroundStyle(.red)
+                            }
+                        }
                     }
                     .padding(10)
                     .background(RoundedRectangle(cornerRadius: 8).fill(.regularMaterial))

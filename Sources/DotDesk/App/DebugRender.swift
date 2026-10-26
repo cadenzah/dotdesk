@@ -14,6 +14,7 @@ enum DebugRender {
         let icons = PixelContext(PixelIcon.allCases.count * 16, 14)
         for (i, icon) in PixelIcon.allCases.enumerated() { icons.image(icon.bubble, CGFloat(i * 16), 0) }
         if let img = icons.makeImage() { write(img, scale: 6, to: out.appendingPathComponent("icons.png")) }
+        renderOnboarding(to: out)
         renderOffice(to: out)
         for tab in SettingsTab.allCases {
             SettingsNavigation.shared.tab = tab
@@ -28,6 +29,35 @@ enum DebugRender {
                 try? rep.representation(using: .png, properties: [:])?.write(to: out.appendingPathComponent("settings-\(tab.rawValue).png"))
             }
         }
+    }
+
+    /// Welcome window and empty office, before and after the hooks are installed.
+    private static func renderOnboarding(to out: URL) {
+        let settings = SettingsStore.shared
+        let real = settings.s.claudeConfigDirs
+        let sim = OfficeSimulation()
+        sim.advance(1)
+        for (state, dirs) in [("connected", real), ("disconnected", [NSTemporaryDirectory() + "dotdesk-no-hooks"])] {
+            settings.s.claudeConfigDirs = dirs
+            IntegrationStatus.shared.refresh()
+            renderView(WelcomeView {}, width: 480, to: out.appendingPathComponent("welcome-\(state).png"))
+            renderView(OfficeView(sim: sim), width: 420, height: 250, to: out.appendingPathComponent("office-empty-\(state).png"))
+        }
+        settings.s.claudeConfigDirs = real
+        IntegrationStatus.shared.refresh()
+    }
+
+    private static func renderView<V: View>(_ view: V, width: CGFloat, height: CGFloat? = nil, to url: URL) {
+        let host = NSHostingView(rootView: view)
+        let size = CGSize(width: width, height: height ?? host.fittingSize.height)
+        host.frame = CGRect(origin: .zero, size: size)
+        let w = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        w.contentView = host
+        host.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
     }
 
     private static func renderOffice(to out: URL) {
