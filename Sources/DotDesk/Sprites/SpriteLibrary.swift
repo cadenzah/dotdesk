@@ -11,7 +11,7 @@ protocol CharacterSkin: AnyObject {
 }
 
 /// A 16x32 sprite sheet in the Pixel Agents layout: rows down/up/right, columns
-/// walk1, stand, walk2, type1, type2, read1, read2 (+ sleep, cheer, doze for built-in sheets).
+/// walk1, stand, walk2, type1, type2, read1, read2 (+ sleep, cheer, doze, nap for built-in sheets).
 final class SheetSkin: CharacterSkin {
     private let frames: [[CGImage]]
     let isSheet = true
@@ -44,6 +44,8 @@ final class SheetSkin: CharacterSkin {
         case .cheer: col = frames[row].count > 8 ? 8 : 1
         // Sheets without a dozing frame sit like they do at a desk.
         case .sit: col = frames[row].count > 9 ? 9 : 3
+        // Head down on the desk; falls back to sitting.
+        case .nap: col = frames[row].count > 10 ? 10 : frames[row].count > 9 ? 9 : 3
         }
         let r = frames[row]
         return (r[min(col, r.count - 1)], facing == .left)
@@ -81,7 +83,7 @@ final class AnimatedSkin: CharacterSkin {
     func frame(facing: Facing, pose: Pose, tick: Int) -> (CGImage, Bool) {
         // Pokémon front sprites face left; mirror when walking right.
         let flip = facing == .right
-        if pose == .sleep || pose == .sit || frames.count == 1 { return (frames[0], flip) }
+        if pose == .sleep || pose == .sit || pose == .nap || frames.count == 1 { return (frames[0], flip) }
         let speed = pose == .type ? 1.6 : 1
         var t = (Date().timeIntervalSinceReferenceDate * speed).truncatingRemainder(dividingBy: total)
         for (i, d) in delays.enumerated() {
@@ -151,7 +153,7 @@ final class SpriteLibrary: ObservableObject {
     // MARK: Skins
 
     func skin(for ref: String, shirt: RGBA) -> CharacterSkin {
-        let cacheKey = ref.hasPrefix("builtin:") ? "\(ref)|\(shirt.hex)" : ref
+        let cacheKey = ref.hasPrefix("builtin:") || ref.hasPrefix("mix:") ? "\(ref)|\(shirt.hex)" : ref
         if let s = skinCache[cacheKey] { return s }
         let skin = makeSkin(ref, shirt: shirt) ?? SheetSkin(sheet: BuiltinCharacters.sheet(look: 0, shirt: shirt))!
         skinCache[cacheKey] = skin
@@ -159,6 +161,9 @@ final class SpriteLibrary: ObservableObject {
     }
 
     private func makeSkin(_ ref: String, shirt: RGBA) -> CharacterSkin? {
+        if let seed = BuiltinCharacters.mixSeed(ref) {
+            return SheetSkin(sheet: BuiltinCharacters.sheet(BuiltinCharacters.randomLook(seed: seed), shirt: shirt))
+        }
         let parts = ref.split(separator: ":").map(String.init)
         guard parts.count >= 2, let n = Int(parts[1]) else { return nil }
         switch parts[0] {
@@ -182,8 +187,9 @@ final class SpriteLibrary: ObservableObject {
     }
 
     /// Picks a default character for a new session from the configured source, avoiding ones already on screen.
+    /// Built-in characters are assembled from random parts seeded by the session, so a session keeps its look.
     func autoCharacter(seed: String, avoiding used: Set<String>) -> String {
-        let pool = autoPool()
+        guard let pool = autoPool() else { return BuiltinCharacters.mixRef(stableHash("look:" + seed)) }
         let start = Int(stableHash(seed) % UInt64(pool.count))
         for i in 0..<pool.count where !used.contains(pool[(start + i) % pool.count]) {
             return pool[(start + i) % pool.count]
@@ -191,7 +197,7 @@ final class SpriteLibrary: ObservableObject {
         return pool[start]
     }
 
-    private func autoPool() -> [String] {
+    private func autoPool() -> [String]? {
         switch settings.s.characterSource {
         case .pixelAgents where !paCharacters.isEmpty:
             return paCharacters.indices.map { "pa:\($0)" }
@@ -199,7 +205,7 @@ final class SpriteLibrary: ObservableObject {
             let shiny = settings.s.pokemonPreferShiny ? ":shiny" : ""
             return pokemon.map { "poke:\($0.id)\(shiny)" }
         default:
-            return BuiltinCharacters.looks.indices.map { "builtin:\($0)" }
+            return nil
         }
     }
 
@@ -216,10 +222,12 @@ final class SpriteLibrary: ObservableObject {
         if ref.hasSuffix(":shiny") {
             return (choices.first { $0.ref == String(ref.dropLast(":shiny".count)) }?.name ?? ref) + " ✨"
         }
+        if let seed = BuiltinCharacters.mixSeed(ref) { return BuiltinCharacters.randomLook(seed: seed).name }
         return choices.first { $0.ref == ref }?.name ?? ref
     }
 
     func group(of ref: String) -> String? {
+        if ref.hasPrefix("mix:") { return "기본 도트" }
         let base = ref.hasSuffix(":shiny") ? String(ref.dropLast(":shiny".count)) : ref
         return choices.first { $0.ref == base }?.group
     }

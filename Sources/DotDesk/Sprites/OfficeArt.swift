@@ -163,6 +163,17 @@ enum OfficeArt {
         p.fill(x + 15, y + 8, 1, 6, RGBA(0x3b5bdb))
     }
 
+    /// A round floor cushion with a dent where someone sits.
+    static func beanbag(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
+        let base = RGBA(0xf59f00), light = RGBA(0xffd43b), dark = RGBA(0xd9480f).mix(base, 0.4)
+        p.fill(x + 5, y, 10, 1, base); p.fill(x + 2, y + 1, 16, 2, base)
+        p.fill(x + 1, y + 3, 18, 3, base); p.fill(x, y + 6, 20, 4, base)
+        p.fill(x + 1, y + 10, 18, 1, dark); p.fill(x + 3, y + 11, 14, 1, dark)
+        p.fill(x, y + 9, 1, 1, dark); p.fill(x + 19, y + 9, 1, 1, dark)
+        p.fill(x + 5, y + 4, 10, 3, base.darker(0.12))
+        p.fill(x + 4, y + 1, 4, 1, light); p.fill(x + 2, y + 3, 2, 2, light)
+    }
+
     static func coffee(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
         if let img = SpriteLibrary.shared.furniture("COFFEE", "COFFEE.png") { p.image(img, x, y - CGFloat(img.height) + 16); return }
         p.fill(x, y - 8, 14, 24, RGBA(0x495057)); p.fill(x + 2, y - 6, 10, 6, RGBA(0x212529))

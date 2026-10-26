@@ -27,6 +27,10 @@ struct OfficeLayout {
         func exit(_ x: CGFloat) -> CGPoint { CGPoint(x: x, y: exitUp ? padded.minY - 2 : padded.maxY + 2) }
     }
 
+    /// Where a resting agent goes. Lounge spots fill in this order; once they are taken the rest nap at their own desk.
+    enum RestSpot: Hashable { case sofa(Int), beanbag, desk }
+    static let loungeSpots: [RestSpot] = [.sofa(0), .sofa(1), .beanbag]
+
     var size = CGSize(width: 240, height: 124)
     var seats: [String: Seat] = [:]
     var zones: [Zone] = []
@@ -35,13 +39,16 @@ struct OfficeLayout {
     var door = CGPoint.zero
     var corridorY: CGFloat = 0
 
-    func loungeSpot(_ i: Int) -> CGPoint {
-        let x = lounge.minX, y = lounge.minY
-        // Sofa seats: feet at the sofa's front edge, so a sitting sprite's back rests against the backrest.
-        if i < 2 { return CGPoint(x: x + 24 + CGFloat(i) * 16, y: y + 22) }
-        let j = i - 2
-        let perRow = 3
-        return CGPoint(x: x + 14 + CGFloat(j % perRow) * 18, y: y + 52 + CGFloat(j / perRow) * 18)
+    var sofa: CGRect { CGRect(x: lounge.minX + 16, y: lounge.minY + 6, width: 32, height: 16) }
+    var beanbag: CGRect { CGRect(x: lounge.minX + 22, y: lounge.minY + 52, width: 20, height: 12) }
+
+    /// Feet of someone resting there; seats put the feet at the front edge so the back rests against the backrest.
+    func restFeet(_ spot: RestSpot, sessionKey: String) -> CGPoint? {
+        switch spot {
+        case .sofa(let i): return CGPoint(x: sofa.minX + 8 + CGFloat(i) * 16, y: sofa.maxY)
+        case .beanbag: return CGPoint(x: beanbag.midX, y: beanbag.maxY - 1)
+        case .desk: return seats[sessionKey]?.feet
+        }
     }
 
     static func make(sessions: [AgentSession], projectName: (String) -> String) -> OfficeLayout {
@@ -94,7 +101,8 @@ struct OfficeLayout {
         L.corridorY = wallH + 8
         // Floor footprints of the lounge furniture drawn in `OfficeSimulation.render`.
         let lx = L.lounge.minX, ly = L.lounge.minY
-        L.obstacles.append(Obstacle(rect: CGRect(x: lx + 16, y: ly + 6, width: 32, height: 16), exitUp: false))
+        L.obstacles.append(Obstacle(rect: L.sofa, exitUp: false))
+        L.obstacles.append(Obstacle(rect: L.beanbag, exitUp: false))
         L.obstacles.append(Obstacle(rect: CGRect(x: lx + 4, y: ly + 24, width: 12, height: 16), exitUp: false))
         L.obstacles.append(Obstacle(rect: CGRect(x: lx + 46, y: ly + 30, width: 16, height: 14), exitUp: false))
         if L.lounge.height > 90 {
@@ -244,7 +252,7 @@ private struct MinHeap {
 /// Moves characters around the office and renders frames at ~12 fps while the office is visible.
 @MainActor
 final class OfficeSimulation: ObservableObject {
-    enum Goal: Equatable { case seat, lounge(Int), door, helper(Int) }
+    enum Goal: Equatable { case seat, rest(OfficeLayout.RestSpot), door, helper(Int) }
 
     struct Actor {
         let id: String
@@ -270,6 +278,7 @@ final class OfficeSimulation: ObservableObject {
     @Published private(set) var hits: [Hit] = []
 
     private var actors: [String: Actor] = [:]
+    private var restSpots: [String: OfficeLayout.RestSpot] = [:]
     private var tick = 0
     private var timer: Timer?
     private let store = SessionStore.shared
@@ -298,15 +307,21 @@ final class OfficeSimulation: ObservableObject {
         let L = OfficeLayout.make(sessions: sessions, projectName: settings.projectName)
         let byKey = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
 
+        // Resting agents keep their spot until they wake; a new one takes the first free lounge spot or naps at their desk.
+        restSpots = restSpots.filter { byKey[$0.key]?.activity == .sleeping }
+        for s in sessions where s.activity == .sleeping && restSpots[s.id] == nil {
+            let taken = Set(restSpots.values)
+            restSpots[s.id] = OfficeLayout.loungeSpots.first { !taken.contains($0) } ?? .desk
+        }
+
         // Spawn / retarget actors
-        var sleepingIndex = 0
         var wanted = Set<String>()
         for s in sessions {
             wanted.insert(s.id)
             if actors[s.id] == nil { actors[s.id] = Actor(id: s.id, sessionKey: s.id, subId: nil, pos: L.door) }
             let goal: Goal
             if s.activity == .leaving { goal = .door }
-            else if s.activity == .sleeping { goal = .lounge(sleepingIndex); sleepingIndex += 1 }
+            else if let spot = restSpots[s.id] { goal = .rest(spot) }
             else { goal = .seat }
             actors[s.id]?.goal = goal
             for (i, sub) in s.subagents.prefix(3).enumerated() where s.activity != .sleeping && s.activity != .leaving {
@@ -329,7 +344,7 @@ final class OfficeSimulation: ObservableObject {
             let target: CGPoint
             switch a.goal {
             case .seat: target = L.seats[a.sessionKey]?.feet ?? L.door
-            case .lounge(let i): target = L.loungeSpot(i)
+            case .rest(let spot): target = L.restFeet(spot, sessionKey: a.sessionKey) ?? L.door
             case .door: target = L.door
             case .helper(let i): target = L.seats[a.sessionKey]?.helperFeet(i) ?? L.door
             }
@@ -399,10 +414,11 @@ final class OfficeSimulation: ObservableObject {
 
         // Lounge furniture
         let lx = L.lounge.minX, ly = L.lounge.minY
-        let sofa = CGRect(x: lx + 16, y: ly + 6, width: 32, height: 16)
+        let sofa = L.sofa, beanbag = L.beanbag
         draws.append((sofa.maxY, { OfficeArt.sofa(p, sofa.minX, sofa.minY) }))
+        draws.append((beanbag.maxY, { OfficeArt.beanbag(p, beanbag.minX, beanbag.minY) }))
         // Someone alone on the sofa lies down; a second sleeper makes them sit up.
-        let sofaCount = actors.values.filter { if case .lounge(let i) = $0.goal { return i < 2 }; return false }.count
+        let sofaCount = actors.values.filter { if case .rest(.sofa) = $0.goal { return true }; return false }.count
         draws.append((ly + 40, { OfficeArt.coffee(p, lx + 4, ly + 24) }))
         draws.append((ly + 44, { OfficeArt.plant(p, lx + 46, ly + 28) }))
         if L.lounge.height > 90 { draws.append((L.lounge.maxY, { OfficeArt.bookshelf(p, lx + 4, L.lounge.maxY - 34) })) }
@@ -413,11 +429,13 @@ final class OfficeSimulation: ObservableObject {
             let activity = sub?.activity ?? s.activity
             let ref = characterRef(for: s, subId: a.subId)
             let skin = sprites.skin(for: ref, shirt: settings.projectColor(s.projectKey))
-            let seated = a.goal == .seat && !a.walking
-            let lounging: Bool = { if case .lounge = a.goal, !a.walking { return true }; return false }()
-            let onSofa: Bool = { if case .lounge(let i) = a.goal, i < 2, !a.walking { return true }; return false }()
+            let napping = a.goal == .rest(.desk) && !a.walking
+            let seated = (a.goal == .seat || napping) && !a.walking
+            let resting: Bool = { if case .rest = a.goal, !a.walking { return true }; return false }()
+            let onSofa: Bool = { if case .rest(.sofa) = a.goal, !a.walking { return true }; return false }()
+            let onBeanbag = a.goal == .rest(.beanbag) && !a.walking
             let lying = onSofa && sofaCount == 1 && skin.isSheet
-            var pose: Pose = a.walking ? .walk : (onSofa ? .sit : lounging ? .sleep : activity.pose)
+            var pose: Pose = a.walking ? .walk : napping ? .nap : (onSofa || onBeanbag) ? .sit : activity.pose
             if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
             if !seated && a.subId == nil && (pose == .type || pose == .read) { pose = .stand }
             var (img, flip) = skin.frame(facing: a.facing, pose: pose, tick: tick)
@@ -433,18 +451,21 @@ final class OfficeSimulation: ObservableObject {
                 // Head on the left armrest, body along the seat cushion.
                 rect = CGRect(x: sofa.minX - 4, y: sofa.minY, width: 32, height: 16)
             } else if skin.isSheet {
-                rect = CGRect(x: a.pos.x - 8, y: a.pos.y - 32 + bounce, width: 16, height: 32)
+                // Sinks a little into the beanbag, and slumps toward the desk when napping.
+                let sink: CGFloat = onBeanbag ? 2 : napping ? 3 : 0
+                rect = CGRect(x: a.pos.x - 8, y: a.pos.y - 32 + sink + bounce, width: 16, height: 32)
             } else {
                 let box: CGFloat = a.subId == nil ? 26 : 18
                 let k = min(box / CGFloat(img.width), box / CGFloat(img.height), 1)
                 let w = CGFloat(img.width) * k, h = CGFloat(img.height) * k
-                rect = CGRect(x: a.pos.x - w / 2, y: a.pos.y - h + (seated ? -6 : onSofa ? -4 : 0) + bounce, width: w, height: h)
+                rect = CGRect(x: a.pos.x - w / 2, y: a.pos.y - h + (seated ? -6 : onSofa ? -4 : onBeanbag ? -2 : 0) + bounce, width: w, height: h)
             }
-            let z = seated ? (L.seats[a.sessionKey]?.cell.minY ?? 0) + 61 : onSofa ? sofa.maxY + 0.5 : a.pos.y
+            let z = seated ? (L.seats[a.sessionKey]?.cell.minY ?? 0) + 61
+                : onSofa ? sofa.maxY + 0.5 : onBeanbag ? beanbag.maxY + 0.5 : a.pos.y
             draws.append((z, { p.image(img, rect.minX, rect.minY, rect.width, rect.height, flipX: flip, smooth: !skin.isSheet) }))
 
             let headTop = lying ? rect.minY + 3 : skin.isSheet ? rect.minY + 7 : rect.minY
-            if !a.walking, let icon = (lounging ? PixelIcon.zzz : activity.icon) {
+            if !a.walking, let icon = (resting ? PixelIcon.zzz : activity.icon) {
                 // Bubbles stay at the resting position instead of bobbing with the sprite.
                 let bx = lying ? rect.minX + 8 : rect.midX - 2, by = headTop - 13 - bounce
                 bubbles.append({ p.image(icon.bubble, bx, by) })
@@ -472,6 +493,7 @@ final class OfficeSimulation: ObservableObject {
         let ref = store.characterRef(s)
         guard let subId else { return ref }
         let i = s.subagents.firstIndex { $0.id == subId } ?? 0
+        if ref.hasPrefix("mix:") { return BuiltinCharacters.mixRef(stableHash("\(ref)/\(i + 1)")) }
         let parts = ref.split(separator: ":")
         if parts.count >= 2, let n = Int(parts[1]), parts[0] == "builtin" || parts[0] == "pa" {
             return "\(parts[0]):\(n + 1 + i)"

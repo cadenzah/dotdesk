@@ -3,8 +3,8 @@ import CoreGraphics
 /// Procedurally painted 16x32 chibi office workers. Original art, safe to ship with the app.
 ///
 /// Sheets follow the Pixel Agents layout (rows: down, up, right; 16x32 frames) so every
-/// character source renders through the same code, with three extra columns: sleep, cheer and doze
-/// (sitting with eyes closed).
+/// character source renders through the same code, with four extra columns: sleep, cheer, doze
+/// (sitting with eyes closed) and nap (head down on the desk).
 enum BuiltinCharacters {
     enum HairStyle { case short, long, bun, spiky, cap }
     /// The top always carries the project color (`shirt`), so outfits vary in cut, not in color.
@@ -25,7 +25,7 @@ enum BuiltinCharacters {
     }
 
     enum Frame: Int, CaseIterable {
-        case walk1 = 0, stand, walk2, type1, type2, read1, read2, sleep, cheer, doze
+        case walk1 = 0, stand, walk2, type1, type2, read1, read2, sleep, cheer, doze, nap
     }
 
     static let looks: [Look] = [
@@ -47,7 +47,54 @@ enum BuiltinCharacters {
     ]
 
     static func sheet(look index: Int, shirt: RGBA) -> CGImage {
-        let look = looks[((index % looks.count) + looks.count) % looks.count]
+        sheet(looks[((index % looks.count) + looks.count) % looks.count], shirt: shirt)
+    }
+
+    // MARK: Random looks
+
+    /// "mix:<hex seed>" — a look assembled from random parts. The same seed always gives the same look.
+    static func mixRef(_ seed: UInt64) -> String { "mix:" + String(seed, radix: 16) }
+
+    static func mixSeed(_ ref: String) -> UInt64? {
+        guard ref.hasPrefix("mix:") else { return nil }
+        return UInt64(ref.dropFirst(4), radix: 16)
+    }
+
+    private static let skins: [UInt32] = [0xffd9b8, 0xf1c27d, 0xe0ac69, 0xffe0c4, 0xc68642, 0x8d5524]
+    private static let hairs: [UInt32] = [0x6b4423, 0x2b2b35, 0xe8c15a, 0xf28cb5, 0x1e1e28, 0xd9622b, 0xdedede, 0x4a6fd1, 0x8a5a44, 0x7b5ea7]
+    private static let pantsColors: [UInt32] = [0x2f3b52, 0x264653, 0x5a4a78, 0x343a40, 0x495057, 0x22303c, 0x3b3b3b]
+    // Skirts sit right above the outline, so they need lighter colors to read.
+    private static let skirtColors: [UInt32] = [0x6d6875, 0x6c757d, 0x5a4a78, 0x7a6a5a]
+    private static let shoeColors: [UInt32] = [0x3b2f2f, 0x2a2a2a, 0x4a3426, 0xf1f3f5, 0x5c3d2e, 0xc92a2a]
+    private static let accents: [Outfit: [UInt32]] = [
+        .shirtTie: [0x2b2d42, 0x5c2a3e, 0x1d3557],
+        .jacket: [0xf8f9fa, 0xffec99, 0xd0ebff],
+        .overalls: [0xfff4e6, 0xf8f9fa, 0xd0ebff],
+    ]
+    private static let styleNames: [HairStyle: String] = [.short: "짧은 머리", .long: "긴 머리", .bun: "똥머리", .spiky: "삐죽머리", .cap: "모자"]
+    private static let outfitNames: [Outfit: String] = [
+        .tee: "반팔 티", .hoodie: "후드티", .shirtTie: "넥타이", .jacket: "재킷", .stripes: "줄무늬", .overalls: "멜빵바지",
+    ]
+
+    static func randomLook(seed: UInt64) -> Look {
+        var rng = SplitMix64(seed)
+        func pick<T>(_ a: [T]) -> T { a[Int(rng.next() % UInt64(a.count))] }
+        let skin = RGBA(pick(skins))
+        var hair = RGBA(pick(hairs))
+        // Re-roll hair that would blend into the face.
+        func distance(_ a: RGBA, _ b: RGBA) -> Int { abs(Int(a.r) - Int(b.r)) + abs(Int(a.g) - Int(b.g)) + abs(Int(a.b) - Int(b.b)) }
+        while distance(hair, skin) < 120 { hair = RGBA(pick(hairs)) }
+        let style = pick([HairStyle.short, .long, .bun, .spiky, .cap])
+        let outfit = pick([Outfit.tee, .hoodie, .shirtTie, .jacket, .stripes, .overalls])
+        let bottom = pick([Bottom.pants, .pants, .shorts, .skirt])
+        let pants = RGBA(bottom == .skirt ? pick(skirtColors) : pick(pantsColors))
+        let shoes = RGBA(pick(shoeColors))
+        let accent = accents[outfit].map { RGBA(pick($0)) } ?? RGBA(0xf8f9fa)
+        return Look(name: "\(styleNames[style]!) · \(outfitNames[outfit]!)", skin: skin, hair: hair, style: style,
+                    pants: pants, shoes: shoes, outfit: outfit, bottom: bottom, accent: accent)
+    }
+
+    static func sheet(_ look: Look, shirt: RGBA) -> CGImage {
         let cols = Frame.allCases.count
         var sheet = PixelCanvas(16 * cols, 32 * 3)
         for (row, dir) in [Facing.down, .up, .right].enumerated() {
@@ -72,7 +119,7 @@ enum BuiltinCharacters {
         let eye = RGBA(0x2b2440), blush = RGBA(0xf59ca0), mouth = RGBA(0xb5524a)
         let paper = RGBA(0xfdfdf6), ink = RGBA(0xb8bcc8)
         let side = dir == .right || dir == .left
-        let seated = !side && [.type1, .type2, .read1, .read2, .doze].contains(f)
+        let seated = !side && [.type1, .type2, .read1, .read2, .doze, .nap].contains(f)
 
         // Legs
         if side {
@@ -151,7 +198,7 @@ enum BuiltinCharacters {
         }
 
         // Head
-        let closed = f == .sleep || f == .doze
+        let closed = f == .sleep || f == .doze || f == .nap
         switch dir {
         case .down:
             c.rect(3, 8, 10, 11, skin)
@@ -220,6 +267,7 @@ enum BuiltinCharacters {
         }
 
         if L.outfit == .hoodie && dir == .down { c[3, 18] = shS; c[12, 18] = shS }
+        if f == .nap && dir == .down { bow(&c, L, sleeve: shS) }
 
         c.outline()
         if dir == .left {
@@ -228,6 +276,16 @@ enum BuiltinCharacters {
             return m
         }
         return c
+    }
+
+    /// Drops the head forward onto arms folded in front, so mostly hair shows above the closed eyes.
+    private static func bow(_ c: inout PixelCanvas, _ L: Look, sleeve: RGBA) {
+        let src = c
+        for y in 0..<21 { for x in 0..<16 { c[x, y] = y >= 2 ? src[x, y - 2] : .clear } }
+        c[7, 19] = L.skin; c[8, 19] = L.skin
+        if L.style != .cap { c.rect(4, 14, 8, 2, L.hair) }
+        c.rect(2, 21, 12, 3, sleeve)
+        c.rect(3, 21, 2, 1, L.skin); c.rect(11, 21, 2, 1, L.skin)
     }
 
     /// Paints the outfit details over the plain torso.
@@ -282,5 +340,19 @@ enum BuiltinCharacters {
             c.rect(5, 23, 6, 2, shirt)
             c.rect(8, 21, 3, 2, shirt); c.rect(8, 19, 1, 2, shirt)
         }
+    }
+}
+
+/// Tiny deterministic generator, so a seed maps to the same look on every launch and Swift version.
+private struct SplitMix64 {
+    private var state: UInt64
+    init(_ seed: UInt64) { state = seed }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9e3779b97f4a7c15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xbf58476d1ce4e5b9
+        z = (z ^ (z >> 27)) &* 0x94d049bb133111eb
+        return z ^ (z >> 31)
     }
 }

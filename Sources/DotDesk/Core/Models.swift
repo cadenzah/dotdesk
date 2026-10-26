@@ -80,7 +80,7 @@ enum Activity: String, Codable {
     }
 }
 
-enum Pose { case stand, walk, type, read, sleep, sit, cheer }
+enum Pose { case stand, walk, type, read, sleep, sit, nap, cheer }
 enum Facing { case down, up, right, left }
 
 struct LogEntry: Identifiable {

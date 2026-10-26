@@ -325,6 +325,7 @@ final class SessionStore: ObservableObject {
             (.claude, "demo-1", "/tmp/dotdesk-demo/web-app"),
             (.claude, "demo-2", "/tmp/dotdesk-demo/web-app"),
             (.codex, "demo-3", "/tmp/dotdesk-demo/api-server"),
+            (.claude, "demo-4", "/tmp/dotdesk-demo/api-server"),
         ]
         for (p, id, cwd) in demos {
             let key = "\(p.rawValue):\(id)"
@@ -348,7 +349,7 @@ final class SessionStore: ObservableObject {
             (.running, "swift build"), (.browsing, "developer.apple.com"), (.delegating, "Explore"),
             (.planning, "할 일 정리"), (.done, ""), (.idle, "답장을 기다려요"), (.waitingInput, "어떤 색이 좋을까요?"),
         ]
-        for (i, key) in ["claude:demo-1", "claude:demo-2", "codex:demo-3"].enumerated() {
+        for (i, key) in ["claude:demo-1", "claude:demo-2", "codex:demo-3", "claude:demo-4"].enumerated() {
             guard var s = sessions[key] else { continue }
             let (a, d) = script[(demoStepIndex + i * 3) % script.count]
             s.setActivity(a, detail: d)

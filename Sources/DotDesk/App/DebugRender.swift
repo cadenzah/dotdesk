@@ -11,6 +11,11 @@ enum DebugRender {
             let sheet = BuiltinCharacters.sheet(look: i, shirt: Palette.project[i % Palette.project.count])
             write(sheet, scale: 6, to: out.appendingPathComponent("builtin-\(i).png"))
         }
+        for i in 0..<8 {
+            let sheet = BuiltinCharacters.sheet(BuiltinCharacters.randomLook(seed: stableHash("look:demo-\(i)")),
+                                                shirt: Palette.project[i % Palette.project.count])
+            write(sheet, scale: 6, to: out.appendingPathComponent("mix-\(i).png"))
+        }
         let icons = PixelContext(PixelIcon.allCases.count * 16, 14)
         for (i, icon) in PixelIcon.allCases.enumerated() { icons.image(icon.bubble, CGFloat(i * 16), 0) }
         if let img = icons.makeImage() { write(img, scale: 6, to: out.appendingPathComponent("icons.png")) }
@@ -73,9 +78,10 @@ enum DebugRender {
             sim.advance(160)
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(k).png")) }
         }
-        // Lounge: one sleeper, then two, with a frame mid-walk and one settled.
+        // Lounge: one sleeper up to four (the last one naps at their desk), with a frame mid-walk and one settled.
         for (name, keys) in [("lounge-1", ["claude:demo-1"]), ("lounge-2", ["claude:demo-1", "claude:demo-2"]),
-                             ("lounge-3", ["claude:demo-1", "claude:demo-2", "codex:demo-3"])] {
+                             ("lounge-3", ["claude:demo-1", "claude:demo-2", "codex:demo-3"]),
+                             ("lounge-4", ["claude:demo-1", "claude:demo-2", "codex:demo-3", "claude:demo-4"])] {
             store.demoStep()
             sim.advance(160)
             store.demoSleep(keys)

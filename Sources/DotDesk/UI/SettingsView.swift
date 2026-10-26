@@ -111,7 +111,9 @@ struct CharactersTab: View {
                 if settings.s.characterSource == .pokemon {
                     Toggle("이로치(색이 다른) 포켓몬 우선", isOn: $settings.s.pokemonPreferShiny)
                 }
-                Text("에이전트마다 자동으로 겹치지 않게 골라요. 사무실에서 캐릭터를 우클릭하면 바꿀 수 있어요.")
+                Text(settings.s.characterSource == .builtin
+                     ? "에이전트마다 머리·옷을 무작위로 조합해요. 사무실에서 캐릭터를 우클릭하면 바꿀 수 있어요."
+                     : "에이전트마다 자동으로 겹치지 않게 골라요. 사무실에서 캐릭터를 우클릭하면 바꿀 수 있어요.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("에셋 위치") {
