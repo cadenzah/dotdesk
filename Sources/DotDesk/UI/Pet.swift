@@ -112,14 +112,15 @@ final class PetController: NSObject {
         model.permissions = store.permissions.filter { $0.sessionKey == s?.id }
 
         // Speech bubble: show briefly after each change, and keep it while the agent needs the user.
-        let key = "\(s?.id ?? "-")|\(activity.rawValue)|\(s?.detail ?? "")"
+        let shown = s?.activeReaction
+        let key = "\(s?.id ?? "-")|\(activity.rawValue)|\(s?.detail ?? "")|\(shown.map { "\($0)" } ?? "")"
         if key != lastActivityKey {
             lastActivityKey = key
             if s != nil, activity != .sleeping { speechUntil = Date().addingTimeInterval(6) }
         }
         if let s {
             let nick = store.nickname(s)
-            model.title = "\(nick) · \(commute?.goal.label ?? pastime?.label() ?? activity.label)"
+            model.title = "\(nick) · \(commute?.goal.label ?? shown?.label ?? pastime?.label() ?? activity.label)"
             var parts: [String] = []
             if !s.detail.isEmpty { parts.append(s.detail) }
             parts.append(settings.projectName(s.projectKey))
@@ -186,9 +187,10 @@ final class PetController: NSObject {
             pose = p
             if let f { facing = f }
         }
-        if waving {
+        let reaction = walking || waving || commute != nil ? nil : s?.activeReaction
+        if waving || reaction?.cheers == true {
             // Arms up and down, or a little side-to-side turn for sprites without a cheer frame.
-            let phase = (tick / 6) % 4
+            let phase = (tick / (waving ? 6 : 3)) % 4
             if skin.hasCheerFrame {
                 pose = phase % 2 == 0 ? .stand : .cheer
             } else {
@@ -198,12 +200,14 @@ final class PetController: NSObject {
         }
         if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
         let (img, flip) = skin.frame(facing: facing, pose: pose, tick: tick / 2)
-        let icon = commute == nil ? pastime?.icon ?? activity.icon : nil
+        let icon = commute == nil ? reaction?.icon ?? pastime?.icon ?? activity.icon : nil
+        let shake: CGFloat = reaction?.shakes == true ? ((tick / 2) % 2 == 0 ? -1 : 1) : 0
 
         var bounce: CGFloat = 0
         if activity == .done { bounce = (tick / 3) % 4 < 2 ? -3 : 0 }
         if activity.needsUser { bounce = (tick / 4) % 6 == 0 ? -2 : 0 }
         if waving { bounce = (tick / 6) % 2 == 0 ? 0 : -2 }
+        if reaction?.cheers == true { bounce = (tick / 3) % 2 == 0 ? 0 : -3 }
         if !skin.isSheet, activity.isWorking { bounce += (tick / 2) % 2 == 0 ? -1 : 0 }
         if commute != nil { bounce = 0 }
 
@@ -211,8 +215,9 @@ final class PetController: NSObject {
         if skin.isSheet {
             let p = PixelContext(Int(Self.canvas.width), Int(Self.canvas.height))
             let rest = CGRect(x: 12, y: 18, width: 16, height: 32)
-            let r = rest.offsetBy(dx: 0, dy: bounce)
+            let r = rest.offsetBy(dx: shake, dy: bounce)
             p.image(img, r.minX, r.minY, flipX: flip)
+            if reaction == .celebrate { OfficeArt.confetti(p, rest, tick: tick / 2) }
             if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: true, tick: tick / 2) }
             if sweating { OfficeArt.sweat(p, r, sheet: true, tick: tick / 2) }
             // Anchor the bubble to the resting position so it doesn't bob along with the sprite.
@@ -226,8 +231,9 @@ final class PetController: NSObject {
             let k = min(72 / CGFloat(img.width), 72 / CGFloat(img.height), 1.5)
             let w = CGFloat(img.width) * k, h = CGFloat(img.height) * k
             let rest = CGRect(x: (CGFloat(cw) - w) / 2, y: CGFloat(ch) - 4 - h, width: w, height: h)
-            let r = rest.offsetBy(dx: 0, dy: bounce * 2)
+            let r = rest.offsetBy(dx: shake * 2, dy: bounce * 2)
             p.image(img, r.minX, r.minY, w, h, flipX: flip)
+            if reaction == .celebrate { OfficeArt.confetti(p, rest, tick: tick / 2) }
             if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: false, tick: tick / 2) }
             if sweating { OfficeArt.sweat(p, r, sheet: false, tick: tick / 2) }
             // Anchor the bubble to the resting position so it doesn't bob along with the sprite.

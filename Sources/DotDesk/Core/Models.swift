@@ -82,6 +82,37 @@ enum Activity: String, Codable {
     }
 }
 
+/// How a character reacts to how things went.
+enum Reaction {
+    /// A tool call failed: a confused shake.
+    case oops
+    case testsPassed
+    case testsFailed
+    /// Finished a long task: cheering with confetti.
+    case celebrate
+
+    var icon: PixelIcon {
+        switch self {
+        case .oops: return .oops
+        case .testsPassed: return .sparkle
+        case .testsFailed: return .cross
+        case .celebrate: return .party
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .oops: return "앗, 실패했어요"
+        case .testsPassed: return "테스트 통과!"
+        case .testsFailed: return "테스트가 실패했어요"
+        case .celebrate: return "긴 작업을 끝냈어요!"
+        }
+    }
+
+    var cheers: Bool { self == .testsPassed || self == .celebrate }
+    var shakes: Bool { self == .oops || self == .testsFailed }
+}
+
 enum Pose { case stand, walk, type, read, sleep, sit, nap, cheer }
 enum Facing { case down, up, right, left }
 
@@ -138,6 +169,11 @@ struct AgentSession: Identifiable {
     var lastEventAt = Date()
     var activityChangedAt = Date()
     var doneUntil: Date?
+    /// When the user's latest request came in, to tell a long task from a quick reply.
+    var turnStartedAt: Date?
+    /// A short reaction to a tool result or a finished task, shown until `reactionUntil`.
+    var reaction: Reaction?
+    var reactionUntil = Date.distantPast
     var subagents: [SubAgent] = []
     var log: [LogEntry] = []
     var usage: ContextUsage?
@@ -150,6 +186,13 @@ struct AgentSession: Identifiable {
     mutating func addLog(_ text: String) {
         log.append(LogEntry(date: Date(), text: text))
         if log.count > 60 { log.removeFirst(log.count - 60) }
+    }
+
+    var activeReaction: Reaction? { Date() < reactionUntil ? reaction : nil }
+
+    mutating func react(_ r: Reaction, for seconds: TimeInterval) {
+        reaction = r
+        reactionUntil = Date().addingTimeInterval(seconds)
     }
 
     mutating func setActivity(_ a: Activity, detail d: String? = nil) {

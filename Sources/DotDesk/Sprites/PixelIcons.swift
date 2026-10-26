@@ -3,7 +3,7 @@ import CoreGraphics
 /// 7x7 activity icons shown in a speech bubble above characters.
 enum PixelIcon: CaseIterable {
     case dots, book, magnifier, pencil, terminal, globe, people, checklist, wrench, exclaim, question, check, zzz
-    case coffee, droplet, game, sun, moon, sparkle, talk, box
+    case coffee, droplet, game, sun, moon, sparkle, talk, box, oops, cross, party
 
     private var art: ([String], [Character: RGBA]) {
         switch self {
@@ -67,6 +67,15 @@ enum PixelIcon: CaseIterable {
         case .box:
             return ([".o.o...", ".oooo..", "#######", "#xxxxx#", "#x###x#", "#xxxxx#", "#######"],
                     ["#": RGBA(0x8b5a2b), "x": RGBA(0xc8a27a), "o": RGBA(0xfff3d6)])
+        case .oops:
+            return ([".####..", "#....#.", "#.##.#.", "#.#..#.", "#.####.", "#......", ".#####."],
+                    ["#": RGBA(0x845ef7)])
+        case .cross:
+            return (["##...##", "###.###", ".#####.", "..###..", ".#####.", "###.###", "##...##"],
+                    ["#": RGBA(0xf03e3e)])
+        case .party:
+            return (["..p.y.b", ".y..b..", "...p..y", "..oo.p.", ".ooo...", "oooo...", "ooo...."],
+                    ["o": RGBA(0xf08c00), "p": RGBA(0xf06595), "y": RGBA(0xfab005), "b": RGBA(0x4dabf7)])
         case .sparkle:
             return (["...#...", "...#...", "..#o#..", "##ooo##", "..#o#..", "...#...", "...#..."],
                     ["#": RGBA(0x22b8cf), "o": RGBA(0x99e9f2)])

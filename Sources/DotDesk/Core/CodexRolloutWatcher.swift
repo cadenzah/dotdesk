@@ -9,6 +9,8 @@ final class CodexRolloutWatcher {
         var sessionId: String?
         var cwd: String?
         var partial = Data()
+        /// Shell commands by call id, to tell test runs apart when their output arrives.
+        var commands: [String: String] = [:]
     }
 
     private var tails: [String: Tail] = [:]
@@ -87,6 +89,28 @@ final class CodexRolloutWatcher {
         tails[path] = t
     }
 
+    /// Output may be a plain string, a JSON string with `output`/`metadata`, or a list of text parts.
+    private static func outputText(_ v: Any?) -> String {
+        if let s = v as? String {
+            if let d = s.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+                var text = o["output"] as? String ?? ""
+                if let code = (o["metadata"] as? [String: Any])?["exit_code"] as? Int { text = "Exit code: \(code)\n" + text }
+                return text
+            }
+            return s
+        }
+        if let parts = v as? [[String: Any]] { return parts.compactMap { $0["text"] as? String }.joined(separator: "\n") }
+        return ""
+    }
+
+    private static let exitPattern = try! NSRegularExpression(pattern: #"(?:Exit code:|exited with code)\s*(-?\d+)"#)
+
+    private static func exitCode(_ text: String) -> Int? {
+        guard let m = exitPattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let r = Range(m.range(at: 1), in: text) else { return nil }
+        return Int(text[r])
+    }
+
     private func handle(_ obj: [String: Any], tail t: inout Tail, home: String) {
         let type = obj["type"] as? String
         let p = obj["payload"] as? [String: Any] ?? [:]
@@ -103,15 +127,16 @@ final class CodexRolloutWatcher {
         switch (type, ptype) {
         case ("event_msg", "task_started"), ("event_msg", "user_message"):
             let msg = p["message"] as? String ?? ""
+            let starts = ptype == "task_started"
             change = { s in
                 s.setActivity(.thinking, detail: truncate(msg, 40))
+                if starts || s.turnStartedAt == nil { s.turnStartedAt = Date() }
                 if !msg.isEmpty { s.addLog("요청: \(truncate(msg, 60))") }
             }
         case ("event_msg", "task_complete"):
-            change = { s in
+            change = { [store] s in
                 s.setActivity(.done, detail: "")
-                s.doneUntil = Date().addingTimeInterval(5)
-                s.addLog("작업 완료")
+                store.finishTurn(&s)
             }
         case ("event_msg", "turn_aborted"):
             change = { s in s.setActivity(.idle, detail: "중단됨") }
@@ -128,6 +153,10 @@ final class CodexRolloutWatcher {
             } else if let action = p["action"] as? [String: Any] {
                 input = action
             }
+            if let id = p["call_id"] as? String, let cmd = ActivityMapper.shellCommand(tool: name, input: input) {
+                t.commands[id] = cmd
+                if t.commands.count > 200 { t.commands.removeAll() }
+            }
             let (a, d) = ActivityMapper.activity(forTool: name, input: input)
             change = { s in
                 s.setActivity(a, detail: d)
@@ -136,7 +165,13 @@ final class CodexRolloutWatcher {
         case ("response_item", "web_search_call"):
             change = { s in s.setActivity(.browsing, detail: "웹 검색") }
         case ("response_item", "function_call_output"), ("response_item", "custom_tool_call_output"):
-            change = { s in if s.activity != .done { s.setActivity(.thinking) } }
+            let output = Self.outputText(p["output"])
+            let command = (p["call_id"] as? String).flatMap { t.commands.removeValue(forKey: $0) }
+            let failed = Self.exitCode(output).map { $0 != 0 } ?? false
+            change = { [store] s in
+                if s.activity != .done { s.setActivity(.thinking) }
+                if command != nil || failed { store.react(&s, command: command, failed: failed, output: output) }
+            }
         default:
             break
         }

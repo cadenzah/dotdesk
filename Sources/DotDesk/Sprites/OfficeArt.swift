@@ -159,6 +159,18 @@ enum OfficeArt {
         p.fill(x, y + 1, 1, 1, RGBA(0xffffff))
     }
 
+    /// Bits of confetti drifting down around a celebrating character.
+    static func confetti(_ p: PixelContext, _ r: CGRect, tick: Int) {
+        let colors = [RGBA(0xf06595), RGBA(0xfab005), RGBA(0x4dabf7), RGBA(0x51cf66), RGBA(0x845ef7)]
+        for i in 0..<8 {
+            let seed = Int(stableHash("confetti\(i)") % 1000)
+            let fall = (tick + seed) % 18
+            let x = r.minX - 4 + CGFloat(seed % Int(r.width + 8))
+            let y = r.minY - 8 + CGFloat(fall)
+            p.fill(x + CGFloat((fall / 3) % 2), y, 1, 1, colors[i % colors.count])
+        }
+    }
+
     static func flag(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, _ color: RGBA) {
         p.fill(x, y, 1, 11, RGBA(0x495057))
         p.fill(x + 1, y, 6, 4, color)

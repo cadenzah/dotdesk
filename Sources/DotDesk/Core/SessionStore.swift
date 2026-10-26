@@ -104,6 +104,7 @@ final class SessionStore: ObservableObject {
             if prompt.hasPrefix("<task-notification>") { prompt = "팀원 결과 확인" }
             s.setActivity(.thinking, detail: truncate(prompt, 40))
             s.doneUntil = nil
+            if s.turnStartedAt == nil || !prompt.hasPrefix("팀원") { s.turnStartedAt = Date() }
             s.addLog("요청: \(truncate(prompt, 60))")
         case "PreToolUse":
             let (a, d) = ActivityMapper.activity(forTool: toolName, input: toolInput)
@@ -121,6 +122,11 @@ final class SessionStore: ObservableObject {
                 s.setActivity(.thinking)
             }
             if req.event == "PostToolUseFailure" { s.addLog("실패 · \(toolName)") }
+            if agentId == nil, j["is_interrupt"] as? Bool != true {
+                let failed = req.event == "PostToolUseFailure"
+                let output = ActivityMapper.outputText(failed ? j["error"] : j["tool_response"])
+                react(&s, command: ActivityMapper.shellCommand(tool: toolName, input: toolInput), failed: failed, output: output)
+            }
         case "PermissionRequest":
             replyNow = false
             sessions[key] = s
@@ -143,8 +149,7 @@ final class SessionStore: ObservableObject {
             if !msg.isEmpty { s.addLog("알림 · \(truncate(msg, 60))") }
         case "Stop":
             s.setActivity(.done, detail: "")
-            s.doneUntil = Date().addingTimeInterval(5)
-            s.addLog("작업 완료")
+            finishTurn(&s)
         case "Interrupt":
             s.setActivity(.idle, detail: "중단됨")
         case "SubagentStart":
@@ -172,6 +177,39 @@ final class SessionStore: ObservableObject {
         }
         sessions[key] = s
         if replyNow { responder.reply() }
+    }
+
+    /// Long tasks earn a celebration.
+    static let celebrateAfter: TimeInterval = 300
+
+    /// Reacts to a finished tool call: a shake for failures, cheering when a test run passes.
+    func react(_ s: inout AgentSession, command: String?, failed: Bool, output: String) {
+        let isTest = command.map(ActivityMapper.isTestCommand) ?? false
+        if isTest {
+            if failed || ActivityMapper.outputShowsTestFailure(output) {
+                s.react(.testsFailed, for: 4)
+                s.addLog("테스트 실패")
+            } else {
+                s.react(.testsPassed, for: 4)
+                s.addLog("테스트 통과")
+            }
+        } else if failed {
+            s.react(.oops, for: 2.5)
+        }
+    }
+
+    /// The turn is over: done for a moment, longer and with confetti after a long task.
+    func finishTurn(_ s: inout AgentSession) {
+        let took = s.turnStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        s.turnStartedAt = nil
+        if took >= Self.celebrateAfter {
+            s.react(.celebrate, for: 8)
+            s.doneUntil = Date().addingTimeInterval(8)
+            s.addLog("긴 작업 완료 (\(Int(took / 60))분)")
+        } else {
+            s.doneUntil = Date().addingTimeInterval(5)
+            s.addLog("작업 완료")
+        }
     }
 
     func setUsage(_ key: String, _ usage: ContextUsage) {

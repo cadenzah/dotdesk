@@ -87,6 +87,38 @@ enum ActivityMapper {
         return "\(tool) · \(detail(tool: tool, input: input))"
     }
 
+    private static let testCommand = try! NSRegularExpression(pattern: #"""
+        (?x)\b(pytest|jest|vitest|mocha|rspec|phpunit|ctest|tox|nox|playwright\s+test)\b
+        | \b(npm|pnpm|yarn|bun)\s+(run\s+)?test\b
+        | \b(go|cargo|swift|dotnet|mix|deno|flutter|dart|bundle\s+exec\s+rake)\s+test\b
+        | \bmake\s+(test|check)\b | \bgradlew?\s+\S*test | \bmvn\s+(\S+\s+)*test\b
+        | \bpython3?\s+-m\s+(pytest|unittest)\b | \bxcodebuild\b.*\btest\b
+        """#)
+
+    /// A shell command that runs a test suite.
+    static func isTestCommand(_ cmd: String) -> Bool {
+        testCommand.firstMatch(in: cmd, range: NSRange(cmd.startIndex..., in: cmd)) != nil
+    }
+
+    private static let testFailure = try! NSRegularExpression(pattern: #"""
+        (?x)\b[1-9]\d*\s+(failed|failing|failures?|errors?)\b | \bFAILED\b | \bFAIL\s | \bTests?\s+failed\b
+        | \btest\s+result:\s+FAILED | \bExecuted\s+\d+\s+tests?,\s+with\s+[1-9]\d*\s+failures?
+        """#)
+
+    /// Test output that reports failures even though the command itself exited cleanly.
+    static func outputShowsTestFailure(_ text: String) -> Bool {
+        testFailure.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    /// stdout and stderr of a tool result, whatever shape the agent reports it in.
+    static func outputText(_ response: Any?) -> String {
+        if let s = response as? String { return s }
+        if let d = response as? [String: Any] {
+            return ["stdout", "stderr", "output", "error"].compactMap { d[$0] as? String }.joined(separator: "\n")
+        }
+        return ""
+    }
+
     static func shellCommand(tool: String, input: [String: Any]) -> String? {
         if let c = input["command"] as? String { return c }
         if let c = input["cmd"] as? String { return c }

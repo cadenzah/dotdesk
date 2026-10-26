@@ -600,6 +600,8 @@ final class OfficeSimulation: ObservableObject {
             } else {
                 pose = activity.pose
             }
+            let reaction = a.walking || a.subId != nil || rest != nil ? nil : s.activeReaction
+            if reaction?.cheers == true { pose = tick / 3 % 2 == 0 ? .cheer : .stand }
             if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
             if !seated && !onSofa && !onBeanbag && a.subId == nil && (pose == .type || pose == .read) { pose = .stand }
             var (img, flip) = skin.frame(facing: facing, pose: pose, tick: tick)
@@ -609,7 +611,9 @@ final class OfficeSimulation: ObservableObject {
             if !a.walking {
                 if activity == .done { bounce = tick % 6 < 3 ? -2 : 0 }
                 if activity == .waitingPermission || activity == .waitingInput { bounce = tick % 10 < 2 ? -1 : 0 }
+                if reaction?.cheers == true { bounce = tick / 3 % 2 == 0 ? -2 : 0 }
             }
+            let shake: CGFloat = reaction?.shakes == true ? (tick % 2 == 0 ? -1 : 1) : 0
             let rect: CGRect
             if lying {
                 // Head on the left armrest, body along the seat cushion.
@@ -617,12 +621,12 @@ final class OfficeSimulation: ObservableObject {
             } else if skin.isSheet {
                 // Sinks a little into the beanbag, and slumps toward the desk when napping.
                 let sink: CGFloat = onBeanbag ? 2 : napping ? 3 : 0
-                rect = CGRect(x: a.pos.x - 8, y: a.pos.y - 32 + sink + bounce, width: 16, height: 32)
+                rect = CGRect(x: a.pos.x - 8 + shake, y: a.pos.y - 32 + sink + bounce, width: 16, height: 32)
             } else {
                 let box: CGFloat = a.subId == nil ? 26 : 18
                 let k = min(box / CGFloat(img.width), box / CGFloat(img.height), 1)
                 let w = CGFloat(img.width) * k, h = CGFloat(img.height) * k
-                rect = CGRect(x: a.pos.x - w / 2, y: a.pos.y - h + (seated ? -6 : onSofa ? -4 : onBeanbag ? -2 : 0) + bounce, width: w, height: h)
+                rect = CGRect(x: a.pos.x - w / 2 + shake, y: a.pos.y - h + (seated ? -6 : onSofa ? -4 : onBeanbag ? -2 : 0) + bounce, width: w, height: h)
             }
             let z = seated ? (L.seats[a.sessionKey]?.cell.minY ?? 0) + 61
                 : onSofa ? sofa.maxY + 0.5 : onBeanbag ? beanbag.maxY + 0.5 : a.pos.y
@@ -632,12 +636,13 @@ final class OfficeSimulation: ObservableObject {
                 p.image(img, rect.minX, rect.minY, rect.width, rect.height, flipX: flip, smooth: !skin.isSheet)
                 if let rest, facing != .up { OfficeArt.held(rest.pastime, p, rect, sheet: skin.isSheet, tick: self.tick) }
                 if sweating { OfficeArt.sweat(p, rect, sheet: skin.isSheet, tick: self.tick) }
+                if reaction == .celebrate { OfficeArt.confetti(p, rect, tick: self.tick) }
             }))
 
             let headTop = lying ? rect.minY + 3 : skin.isSheet ? rect.minY + 7 : rect.minY
             // Chatters take turns talking.
             let silent: Bool = { if let rest, case .chat(_, let side) = rest.spot { return tick / 24 % 2 != side }; return false }()
-            if !a.walking, !silent, let icon = rest?.pastime.icon ?? activity.icon {
+            if !a.walking, !silent, let icon = reaction?.icon ?? rest?.pastime.icon ?? activity.icon {
                 // Bubbles stay at the resting position instead of bobbing with the sprite.
                 let bx = lying ? rect.minX + 8 : rect.midX - 2, by = headTop - 13 - bounce
                 bubbles.append({ p.image(icon.bubble, bx, by) })
