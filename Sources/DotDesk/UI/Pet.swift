@@ -167,9 +167,11 @@ final class PetController: NSObject {
         let scale = CGFloat(settings.s.pet.scale)
         if skin.isSheet {
             let p = PixelContext(Int(Self.canvas.width), Int(Self.canvas.height))
-            let r = CGRect(x: 12, y: 18 + bounce, width: 16, height: 32)
+            let rest = CGRect(x: 12, y: 18, width: 16, height: 32)
+            let r = rest.offsetBy(dx: 0, dy: bounce)
             p.image(img, r.minX, r.minY, flipX: flip)
-            if let icon = activity.icon, !walking { p.image(icon.bubble, r.midX - 1, r.minY - 6) }
+            // Anchor the bubble to the resting position so it doesn't bob along with the sprite.
+            if let icon = activity.icon, !walking { p.image(icon.bubble, rest.midX - 1, rest.minY - 6) }
             model.frame = p.makeImage()
             model.displayScale = scale
         } else {
@@ -178,9 +180,11 @@ final class PetController: NSObject {
             let p = PixelContext(cw, ch)
             let k = min(72 / CGFloat(img.width), 72 / CGFloat(img.height), 1.5)
             let w = CGFloat(img.width) * k, h = CGFloat(img.height) * k
-            let r = CGRect(x: (CGFloat(cw) - w) / 2, y: CGFloat(ch) - 4 - h + bounce * 2, width: w, height: h)
+            let rest = CGRect(x: (CGFloat(cw) - w) / 2, y: CGFloat(ch) - 4 - h, width: w, height: h)
+            let r = rest.offsetBy(dx: 0, dy: bounce * 2)
             p.image(img, r.minX, r.minY, w, h, flipX: flip)
-            if let icon = activity.icon, !walking { p.image(icon.bubble, r.midX + 4, max(0, r.minY - 14), 30, 28) }
+            // Anchor the bubble to the resting position so it doesn't bob along with the sprite.
+            if let icon = activity.icon, !walking { p.image(icon.bubble, rest.midX + 4, max(0, rest.minY - 14), 30, 28) }
             model.frame = p.makeImage()
             model.displayScale = scale * Self.canvas.width / CGFloat(cw)
         }

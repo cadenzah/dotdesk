@@ -283,7 +283,8 @@ final class OfficeSimulation: ObservableObject {
 
             let headTop = skin.isSheet ? rect.minY + 7 : rect.minY
             if !a.walking, let icon = (lounging ? PixelIcon.zzz : activity.icon) {
-                let bx = rect.midX - 2, by = headTop - 13
+                // Bubbles stay at the resting position instead of bobbing with the sprite.
+                let bx = rect.midX - 2, by = headTop - 13 - bounce
                 bubbles.append({ p.image(icon.bubble, bx, by) })
             }
             if a.subId == nil {
