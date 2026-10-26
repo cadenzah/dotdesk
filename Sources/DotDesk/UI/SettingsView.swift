@@ -375,7 +375,7 @@ struct IntegrationsTab: View {
                         newClaudeDir = ""
                     }
                 }
-                Text("settings.json의 hooks에 DotDesk 항목만 추가해요(처음 한 번 .dotdesk.backup으로 백업). 데스크톱 앱의 Code 탭에도 적용돼요. 이미 열려 있던 세션은 새로 시작해야 반영돼요.")
+                Text("settings.json의 hooks에 DotDesk 항목만 추가해요(처음 한 번 .dotdesk.backup으로 백업). 데스크톱 앱의 Code 탭에도 적용되고, 이미 열려 있는 세션에도 바로 반영돼요.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Codex") {
