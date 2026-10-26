@@ -17,6 +17,8 @@
 - **여러 계정·조직 구분** — `CLAUDE_CONFIG_DIR`/`CODEX_HOME`별 로그인 계정을 읽어서 책상 깃발 색과 이름표로 구분해요.
 - **캐릭터 고르기** — 새 에이전트마다 머리와 옷을 무작위로 조합해요. 기본 도트 프리셋 8종, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) 캐릭터, [PokeTokenBar](https://github.com/chattymin/PokeTokenBar)에서 모은 포켓몬 중에서 에이전트·프로젝트별로 고를 수 있어요.
 
+> 앱은 한국어와 영어를 지원해요. 시스템 언어를 따르고, 설정 **일반** 탭의 **언어**에서 바꿀 수 있어요.
+
 ## 설치
 
 [Releases](https://github.com/cadenzah/dotdesk/releases/latest)에서 `DotDesk-<버전>.zip`을 내려받아 압축을 풀고, `DotDesk.app`을 `응용 프로그램` 폴더로 옮기세요. macOS 14 이상, Apple Silicon Mac에서 동작해요.

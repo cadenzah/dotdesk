@@ -7,23 +7,23 @@ enum Decoration: String, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
-        case .frame: return "그림 액자"
-        case .lights: return "줄 전구"
-        case .lamp: return "스탠드 조명"
-        case .trophies: return "트로피 선반"
-        case .cat: return "창가 고양이"
-        case .plaque: return "100시간 명패"
+        case .frame: return L("그림 액자", "Picture frame")
+        case .lights: return L("줄 전구", "String lights")
+        case .lamp: return L("스탠드 조명", "Floor lamp")
+        case .trophies: return L("트로피 선반", "Trophy shelf")
+        case .cat: return L("창가 고양이", "Window cat")
+        case .plaque: return L("100시간 명패", "100-hour plaque")
         }
     }
 
     var goal: String {
         switch self {
-        case .frame: return "첫 작업 끝내기"
-        case .lights: return "3일 동안 함께 일하기"
-        case .lamp: return "요청 100번"
-        case .trophies: return "테스트 통과 10번 (50번, 200번이면 트로피가 늘어요)"
-        case .cat: return "5분 넘게 걸린 긴 작업 10번"
-        case .plaque: return "함께 일한 시간 100시간"
+        case .frame: return L("첫 작업 끝내기", "Finish your first task")
+        case .lights: return L("3일 동안 함께 일하기", "Work together on 3 days")
+        case .lamp: return L("요청 100번", "100 requests")
+        case .trophies: return L("테스트 통과 10번 (50번, 200번이면 트로피가 늘어요)", "10 passing test runs (more trophies at 50 and 200)")
+        case .cat: return L("5분 넘게 걸린 긴 작업 10번", "10 long tasks over 5 minutes")
+        case .plaque: return L("함께 일한 시간 100시간", "100 hours worked together")
         }
     }
 

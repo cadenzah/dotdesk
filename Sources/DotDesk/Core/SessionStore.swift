@@ -18,6 +18,11 @@ final class SessionStore: ObservableObject {
         "도토리", "모찌", "콩이", "보리", "호두", "두부", "라떼", "쿠키", "망고", "자두",
         "율무", "깨비", "솜이", "밤톨", "구름", "누룽지", "마루", "단추", "찹쌀", "초코",
     ]
+    /// Same order as `nicknames`; the Korean name is what gets stored, this is only for display.
+    static let englishNicknames = [
+        "Acorn", "Mochi", "Bean", "Barley", "Walnut", "Tofu", "Latte", "Cookie", "Mango", "Plum",
+        "Millet", "Goblin", "Fluffy", "Chestnut", "Cloud", "Crispy", "Maru", "Button", "Dumpling", "Choco",
+    ]
 
     private init() {
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -39,8 +44,14 @@ final class SessionStore: ObservableObject {
     }
 
     func nickname(_ s: AgentSession) -> String {
-        guard let w = worker(s) else { return "에이전트" }
-        return w.name.flatMap { $0.isEmpty ? nil : $0 } ?? w.autoNickname
+        guard let w = worker(s) else { return L("에이전트", "Agent") }
+        return w.name.flatMap { $0.isEmpty ? nil : $0 } ?? Self.displayNickname(w.autoNickname)
+    }
+
+    /// An automatic nickname in the UI language.
+    static func displayNickname(_ name: String) -> String {
+        guard !Lang.korean, let i = nicknames.firstIndex(of: name) else { return name }
+        return englishNicknames[i]
     }
 
     func characterRef(_ s: AgentSession) -> String {
@@ -100,15 +111,17 @@ final class SessionStore: ObservableObject {
         switch req.event {
         case "SessionStart":
             if s.activity == .leaving || s.activity == .sleeping || s.activity == .compacting { s.setActivity(.idle, detail: "") }
-            s.addLog("세션 시작 (\(j["source"] as? String ?? "startup"))")
+            s.addLog(L("세션 시작 (\(j["source"] as? String ?? "startup"))", "Session started (\(j["source"] as? String ?? "startup"))"))
         case "UserPromptSubmit":
             var prompt = j["prompt"] as? String ?? ""
-            if prompt.hasPrefix("<task-notification>") { prompt = "팀원 결과 확인" }
+            // A teammate's result coming back, not a request from the user.
+            let isTeammateNote = prompt.hasPrefix("<task-notification>")
+            if isTeammateNote { prompt = L("팀원 결과 확인", "Checking a teammate's result") }
             s.setActivity(.thinking, detail: truncate(prompt, 40))
             s.doneUntil = nil
-            if s.turnStartedAt == nil || !prompt.hasPrefix("팀원") { s.turnStartedAt = Date() }
-            if !prompt.hasPrefix("팀원") { DailyStats.shared.recordPrompt(s) }
-            s.addLog("요청: \(truncate(prompt, 60))")
+            if s.turnStartedAt == nil || !isTeammateNote { s.turnStartedAt = Date() }
+            if !isTeammateNote { DailyStats.shared.recordPrompt(s) }
+            s.addLog(L("요청: \(truncate(prompt, 60))", "Request: \(truncate(prompt, 60))"))
         case "PreToolUse":
             let (a, d) = ActivityMapper.activity(forTool: toolName, input: toolInput)
             DailyStats.shared.recordTool(s, tool: toolName, input: toolInput)
@@ -129,7 +142,7 @@ final class SessionStore: ObservableObject {
             } else if s.activity != .done {
                 s.setActivity(.thinking)
             }
-            if req.event == "PostToolUseFailure" { s.addLog("실패 · \(toolName)") }
+            if req.event == "PostToolUseFailure" { s.addLog(L("실패 · \(toolName)", "Failed · \(toolName)")) }
             if agentId == nil, j["is_interrupt"] as? Bool != true {
                 let failed = req.event == "PostToolUseFailure"
                 let output = ActivityMapper.outputText(failed ? j["error"] : j["tool_response"])
@@ -150,35 +163,35 @@ final class SessionStore: ObservableObject {
             case "agent_needs_input", "elicitation_dialog", "elicitation_url_dialog":
                 s.setActivity(.waitingInput, detail: truncate(msg, 40))
             case "idle_prompt":
-                if !s.activity.needsUser { s.setActivity(.idle, detail: "답장을 기다려요") }
+                if !s.activity.needsUser { s.setActivity(.idle, detail: L("답장을 기다려요", "Waiting for a reply")) }
             default:
                 break
             }
-            if !msg.isEmpty { s.addLog("알림 · \(truncate(msg, 60))") }
+            if !msg.isEmpty { s.addLog(L("알림 · \(truncate(msg, 60))", "Notice · \(truncate(msg, 60))")) }
         case "Stop":
             s.setActivity(.done, detail: "")
             finishTurn(&s)
         case "Interrupt":
-            s.setActivity(.idle, detail: "중단됨")
+            s.setActivity(.idle, detail: L("중단됨", "Interrupted"))
         case "SubagentStart":
             let id = agentId ?? UUID().uuidString
             if !s.subagents.contains(where: { $0.id == id }) {
                 s.subagents.append(SubAgent(id: id, type: agentType ?? "subagent"))
             }
-            s.addLog("팀원 합류 · \(agentType ?? "subagent")")
+            s.addLog(L("팀원 합류 · \(agentType ?? "subagent")", "Teammate joined · \(agentType ?? "subagent")"))
             if s.activeReaction == nil { s.react(.briefing, for: 3) }
         case "SubagentStop":
             s.subagents.removeAll { $0.id == agentId }
-            s.addLog("팀원 복귀 · \(agentType ?? "subagent")")
+            s.addLog(L("팀원 복귀 · \(agentType ?? "subagent")", "Teammate back · \(agentType ?? "subagent")"))
             if s.activeReaction == nil { s.react(.reportIn, for: 3) }
         case "PreCompact":
             let auto = (j["trigger"] as? String) == "auto"
-            s.setActivity(.compacting, detail: auto ? "컨텍스트가 차서 정리 중" : "")
-            s.addLog(auto ? "컨텍스트가 차서 대화를 정리해요" : "대화 정리")
+            s.setActivity(.compacting, detail: auto ? L("컨텍스트가 차서 정리 중", "Context full, compacting") : "")
+            s.addLog(auto ? L("컨텍스트가 차서 대화를 정리해요", "Context is full, compacting the conversation") : L("대화 정리", "Compacted the conversation"))
         case "SessionEnd":
             s.setActivity(.leaving, detail: "")
             s.subagents.removeAll()
-            s.addLog("세션 종료")
+            s.addLog(L("세션 종료", "Session ended"))
             UsageReader.shared.forget(key)
             release(s)
             dropPermissions(for: key)
@@ -200,10 +213,10 @@ final class SessionStore: ObservableObject {
             DailyStats.shared.recordTest(s, passed: passed)
             if !passed {
                 s.react(.testsFailed, for: 4)
-                s.addLog("테스트 실패")
+                s.addLog(L("테스트 실패", "Tests failed"))
             } else {
                 s.react(.testsPassed, for: 4)
-                s.addLog("테스트 통과")
+                s.addLog(L("테스트 통과", "Tests passed"))
             }
         } else if failed {
             s.react(.oops, for: 2.5)
@@ -218,10 +231,10 @@ final class SessionStore: ObservableObject {
         if took >= Self.celebrateAfter {
             s.react(.celebrate, for: 8)
             s.doneUntil = Date().addingTimeInterval(8)
-            s.addLog("긴 작업 완료 (\(Int(took / 60))분)")
+            s.addLog(L("긴 작업 완료 (\(Int(took / 60))분)", "Long task done (\(Int(took / 60)) min)"))
         } else {
             s.doneUntil = Date().addingTimeInterval(5)
-            s.addLog("작업 완료")
+            s.addLog(L("작업 완료", "Task done"))
         }
     }
 
@@ -317,7 +330,7 @@ final class SessionStore: ObservableObject {
         var w = pick ?? hire(for: s)
         if let h = holders[w.id] {
             sessions[h.id]?.workerId = nil
-            if h.activity != .leaving { sessions[h.id]?.addLog("\(withSubjectParticle(nickname(h))) 새 세션을 맡으러 갔어요") }
+            if h.activity != .leaving { sessions[h.id]?.addLog(L("\(withSubjectParticle(nickname(h))) 새 세션을 맡으러 갔어요", "\(nickname(h)) left for a new session")) }
         }
         if w.autoCharacter.isEmpty || w.autoNickname.isEmpty { pickLook(&w) }
         let continued = w.sessionKey != nil && w.sessionKey != key
@@ -327,7 +340,7 @@ final class SessionStore: ObservableObject {
         w.lastSeen = Date()
         settings.s.workers[w.id] = w
         s.workerId = w.id
-        if continued { s.addLog("\(withSubjectParticle(nickname(s))) 이어서 맡았어요") }
+        if continued { s.addLog(L("\(withSubjectParticle(nickname(s))) 이어서 맡았어요", "\(nickname(s)) took over")) }
     }
 
     private func hire(for s: AgentSession) -> Worker {
@@ -371,12 +384,12 @@ final class SessionStore: ObservableObject {
            let cmd = ActivityMapper.shellCommand(tool: tool, input: input)?.lowercased(),
            let hit = settings.s.permissions.dangerousPatterns.first(where: { !$0.isEmpty && cmd.contains($0.lowercased()) }) {
             mode = .bubble
-            reason = "위험할 수 있는 명령(\(hit))이라 확인이 필요해요"
+            reason = L("위험할 수 있는 명령(\(hit))이라 확인이 필요해요", "Possibly dangerous command (\(hit)), please confirm")
         }
 
         switch mode {
         case .autoAllow:
-            s.addLog("자동 허용 · \(truncate(summary, 50))")
+            s.addLog(L("자동 허용 · \(truncate(summary, 50))", "Auto-approved · \(truncate(summary, 50))"))
             sessions[key] = s
             responder.reply(Self.permissionBody(provider: provider, .allow))
         case .passthrough:
@@ -406,17 +419,17 @@ final class SessionStore: ObservableObject {
         guard var s = sessions[p.sessionKey] else { return }
         switch decision {
         case .allow:
-            s.addLog("허용 · \(truncate(p.summary, 50))")
+            s.addLog(L("허용 · \(truncate(p.summary, 50))", "Allowed · \(truncate(p.summary, 50))"))
             s.setActivity(.thinking)
         case .deny:
-            s.addLog("거부 · \(truncate(p.summary, 50))")
+            s.addLog(L("거부 · \(truncate(p.summary, 50))", "Denied · \(truncate(p.summary, 50))"))
             s.setActivity(.thinking)
         case .passthrough:
             break
         }
         if allowSession {
             s.autoAllowThisSession = true
-            s.addLog("이 세션은 자동 허용으로 전환")
+            s.addLog(L("이 세션은 자동 허용으로 전환", "Switched this session to auto-approve"))
         }
         sessions[p.sessionKey] = s
         if allowSession {
@@ -443,7 +456,7 @@ final class SessionStore: ObservableObject {
         switch d {
         case .passthrough: return Data()
         case .allow: decision = ["behavior": "allow"]
-        case .deny(let msg): decision = ["behavior": "deny", "message": msg ?? "DotDesk에서 사용자가 거부했어요."]
+        case .deny(let msg): decision = ["behavior": "deny", "message": msg ?? L("DotDesk에서 사용자가 거부했어요.", "The user denied this in DotDesk.")]
         }
         let obj: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest", "decision": decision]]
         return (try? JSONSerialization.data(withJSONObject: obj)) ?? Data()
@@ -455,7 +468,7 @@ final class SessionStore: ObservableObject {
         let now = Date()
         for p in permissions where now > p.deadline {
             p.resolve(.passthrough)
-            sessions[p.sessionKey]?.addLog("응답 시간이 지나 에이전트 창으로 넘겼어요")
+            sessions[p.sessionKey]?.addLog(L("응답 시간이 지나 에이전트 창으로 넘겼어요", "No answer in time, handed back to the agent's window"))
         }
         permissions.removeAll { $0.resolved }
 
@@ -465,7 +478,7 @@ final class SessionStore: ObservableObject {
             let quiet = now.timeIntervalSince(s.lastEventAt)
             var changed = false
             if s.activity == .done, let until = s.doneUntil, now > until {
-                s.setActivity(.idle, detail: "답장을 기다려요")
+                s.setActivity(.idle, detail: L("답장을 기다려요", "Waiting for a reply"))
                 s.doneUntil = nil
                 changed = true
             }
@@ -546,7 +559,7 @@ final class SessionStore: ObservableObject {
         let script: [(Activity, String)] = [
             (.thinking, ""), (.reading, "App.swift"), (.searching, "TODO"), (.typing, "OfficeView.swift"),
             (.running, "swift build"), (.browsing, "developer.apple.com"), (.delegating, "Explore"),
-            (.planning, "할 일 정리"), (.done, ""), (.idle, "답장을 기다려요"), (.waitingInput, "어떤 색이 좋을까요?"),
+            (.planning, L("할 일 정리", "Sorting out tasks")), (.done, ""), (.idle, L("답장을 기다려요", "Waiting for a reply")), (.waitingInput, L("어떤 색이 좋을까요?", "Which color works best?")),
         ]
         for (i, key) in ["claude:demo-1", "claude:demo-2", "codex:demo-3", "claude:demo-4"].enumerated() {
             guard var s = sessions[key] else { continue }

@@ -19,22 +19,22 @@ enum Activity: String, Codable {
 
     var label: String {
         switch self {
-        case .idle: return "대기 중"
-        case .thinking: return "생각 중"
-        case .reading: return "읽는 중"
-        case .searching: return "찾는 중"
-        case .typing: return "작성 중"
-        case .running: return "실행 중"
-        case .browsing: return "웹 탐색 중"
-        case .delegating: return "팀원 호출 중"
-        case .planning: return "계획 중"
-        case .tool: return "도구 사용 중"
-        case .compacting: return "대화 정리 중"
-        case .waitingPermission: return "허락을 기다려요"
-        case .waitingInput: return "질문이 있어요"
-        case .done: return "완료!"
-        case .sleeping: return "쉬는 중"
-        case .leaving: return "퇴근 중"
+        case .idle: return L("대기 중", "Idle")
+        case .thinking: return L("생각 중", "Thinking")
+        case .reading: return L("읽는 중", "Reading")
+        case .searching: return L("찾는 중", "Searching")
+        case .typing: return L("작성 중", "Writing")
+        case .running: return L("실행 중", "Running")
+        case .browsing: return L("웹 탐색 중", "Browsing")
+        case .delegating: return L("팀원 호출 중", "Calling a teammate")
+        case .planning: return L("계획 중", "Planning")
+        case .tool: return L("도구 사용 중", "Using a tool")
+        case .compacting: return L("대화 정리 중", "Compacting")
+        case .waitingPermission: return L("허락을 기다려요", "Waiting for permission")
+        case .waitingInput: return L("질문이 있어요", "Has a question")
+        case .done: return L("완료!", "Done!")
+        case .sleeping: return L("쉬는 중", "Resting")
+        case .leaving: return L("퇴근 중", "Heading home")
         }
     }
 
@@ -107,12 +107,12 @@ enum Reaction {
 
     var label: String {
         switch self {
-        case .oops: return "앗, 실패했어요"
-        case .testsPassed: return "테스트 통과!"
-        case .testsFailed: return "테스트가 실패했어요"
-        case .celebrate: return "긴 작업을 끝냈어요!"
-        case .briefing: return "팀원에게 일을 맡겼어요"
-        case .reportIn: return "팀원이 결과를 가져왔어요"
+        case .oops: return L("앗, 실패했어요", "Oops, that failed")
+        case .testsPassed: return L("테스트 통과!", "Tests passed!")
+        case .testsFailed: return L("테스트가 실패했어요", "Tests failed")
+        case .celebrate: return L("긴 작업을 끝냈어요!", "Finished a long task!")
+        case .briefing: return L("팀원에게 일을 맡겼어요", "Handed work to a teammate")
+        case .reportIn: return L("팀원이 결과를 가져왔어요", "A teammate reported back")
         }
     }
 
@@ -268,9 +268,9 @@ enum PermissionMode: String, Codable, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .passthrough: return "에이전트 창에서 직접 응답"
-        case .bubble: return "펫 말풍선에서 응답"
-        case .autoAllow: return "자동 허용 (바이패스)"
+        case .passthrough: return L("에이전트 창에서 직접 응답", "Answer in the agent's window")
+        case .bubble: return L("펫 말풍선에서 응답", "Answer in the pet's bubble")
+        case .autoAllow: return L("자동 허용 (바이패스)", "Auto-approve (bypass)")
         }
     }
 }

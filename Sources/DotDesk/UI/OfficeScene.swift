@@ -302,16 +302,16 @@ final class OfficeSimulation: ObservableObject {
         /// Shown instead of the session's activity while walking there.
         var label: String {
             switch self {
-            case .seat, .rest(.desk): return "자리로 가는 중"
-            case .rest(.sofa): return "소파로 가는 중"
-            case .rest(.beanbag): return "빈백으로 가는 중"
-            case .rest(.coffee): return "커피 머신으로 가는 중"
-            case .rest(.plant): return "화분으로 가는 중"
-            case .rest(.window), .rest(.chat): return "창가로 가는 중"
-            case .rest(.stretch): return "휴게실로 가는 중"
-            case .rest(.bookshelf): return "책장으로 가는 중"
-            case .door: return "퇴근하는 중"
-            case .helper: return "도우러 가는 중"
+            case .seat, .rest(.desk): return L("자리로 가는 중", "Heading to desk")
+            case .rest(.sofa): return L("소파로 가는 중", "Heading to the sofa")
+            case .rest(.beanbag): return L("빈백으로 가는 중", "Heading to the beanbag")
+            case .rest(.coffee): return L("커피 머신으로 가는 중", "Heading for coffee")
+            case .rest(.plant): return L("화분으로 가는 중", "Heading to the plant")
+            case .rest(.window), .rest(.chat): return L("창가로 가는 중", "Heading to the window")
+            case .rest(.stretch): return L("휴게실로 가는 중", "Heading to the lounge")
+            case .rest(.bookshelf): return L("책장으로 가는 중", "Heading to the bookshelf")
+            case .door: return L("퇴근하는 중", "Heading home")
+            case .helper: return L("도우러 가는 중", "Going to help")
             }
         }
     }
@@ -350,20 +350,20 @@ final class OfficeSimulation: ObservableObject {
         /// `spot` is nil for the desktop pet, which has no furniture.
         func label(at spot: OfficeLayout.RestSpot? = nil) -> String {
             switch (self, spot) {
-            case (.nap, .sofa?): return "소파에서 낮잠 자는 중"
-            case (.nap, .beanbag?): return "빈백에서 조는 중"
-            case (.nap, .desk?): return "책상에 엎드려 자는 중"
-            case (.nap, _): return "꾸벅꾸벅 조는 중"
-            case (.game, nil): return "게임하는 중"
-            case (.game, _): return "소파에서 게임하는 중"
-            case (.read, nil): return "책 읽는 중"
-            case (.read, _): return "빈백에서 책 읽는 중"
-            case (.coffee, _): return "커피 마시는 중"
-            case (.water, _): return "화분에 물 주는 중"
-            case (.gaze, _): return "창밖 구경하는 중"
-            case (.chat, _): return "창가에서 수다 떠는 중"
-            case (.stretch, _): return "스트레칭하는 중"
-            case (.browse, _): return "책장에서 책 고르는 중"
+            case (.nap, .sofa?): return L("소파에서 낮잠 자는 중", "Napping on the sofa")
+            case (.nap, .beanbag?): return L("빈백에서 조는 중", "Dozing on the beanbag")
+            case (.nap, .desk?): return L("책상에 엎드려 자는 중", "Napping at the desk")
+            case (.nap, _): return L("꾸벅꾸벅 조는 중", "Nodding off")
+            case (.game, nil): return L("게임하는 중", "Playing games")
+            case (.game, _): return L("소파에서 게임하는 중", "Gaming on the sofa")
+            case (.read, nil): return L("책 읽는 중", "Reading")
+            case (.read, _): return L("빈백에서 책 읽는 중", "Reading on the beanbag")
+            case (.coffee, _): return L("커피 마시는 중", "Having coffee")
+            case (.water, _): return L("화분에 물 주는 중", "Watering the plant")
+            case (.gaze, _): return L("창밖 구경하는 중", "Gazing out the window")
+            case (.chat, _): return L("창가에서 수다 떠는 중", "Chatting by the window")
+            case (.stretch, _): return L("스트레칭하는 중", "Stretching")
+            case (.browse, _): return L("책장에서 책 고르는 중", "Browsing the bookshelf")
             }
         }
 

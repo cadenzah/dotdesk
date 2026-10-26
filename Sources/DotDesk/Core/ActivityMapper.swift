@@ -57,7 +57,7 @@ enum ActivityMapper {
                     return file(String(rest.prefix { !$0.isNewline }))
                 }
             }
-            return "패치"
+            return L("패치", "Patch")
         case "Grep", "Glob", "grep_files":
             if let p = str("pattern") { return truncate(p, 32) }
         case "WebFetch", "web_fetch":

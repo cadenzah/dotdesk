@@ -140,12 +140,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         integration.refresh()
         if !integration.claudeConnected {
-            menu.addItem(MenuAction("⚠︎ Claude Code와 연결되지 않았어요 — 연결하기…") { [weak self] in self?.showWelcome() })
+            menu.addItem(MenuAction(L("⚠︎ Claude Code와 연결되지 않았어요 — 연결하기…", "⚠︎ Not connected to Claude Code — Connect…")) { [weak self] in self?.showWelcome() })
             menu.addItem(.separator())
         }
         let sessions = store.activeSessions.filter { $0.activity != .leaving }
         if sessions.isEmpty {
-            menu.addItem(withTitle: "일하는 에이전트가 없어요", action: nil, keyEquivalent: "").isEnabled = false
+            menu.addItem(withTitle: L("일하는 에이전트가 없어요", "No agents working"), action: nil, keyEquivalent: "").isEnabled = false
         }
         for s in sessions {
             let item = NSMenuItem(title: "\(store.nickname(s)) · \(settings.projectName(s.projectKey)) — \(s.activity.label)", action: nil, keyEquivalent: "")
@@ -154,56 +154,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !s.detail.isEmpty { sub.addItem(withTitle: s.detail, action: nil, keyEquivalent: "").isEnabled = false }
             if let u = s.usage, let tokens = u.contextTokens, let f = settings.contextFraction(s) {
                 let window = u.window(settings.s.contextWindow)
-                sub.addItem(withTitle: "컨텍스트 \(Int((f * 100).rounded()))% (\(formatTokens(tokens))/\(formatTokens(window)))",
+                sub.addItem(withTitle: L("컨텍스트 \(Int((f * 100).rounded()))% (\(formatTokens(tokens))/\(formatTokens(window)))",
+                                           "Context \(Int((f * 100).rounded()))% (\(formatTokens(tokens))/\(formatTokens(window)))"),
                             action: nil, keyEquivalent: "").isEnabled = false
             }
             sub.addItem(.separator())
             if WindowFocuser.canFocus(s) {
-                sub.addItem(MenuAction("에이전트 창으로 가기") { WindowFocuser.focusOrBeep(s) })
+                sub.addItem(MenuAction(L("에이전트 창으로 가기", "Go to agent's window")) { WindowFocuser.focusOrBeep(s) })
             }
             if PetManager.shared.pinned[s.id] == nil {
-                sub.addItem(MenuAction("데스크톱 펫으로 꺼내기") { PetManager.shared.popOut(s.id) })
+                sub.addItem(MenuAction(L("데스크톱 펫으로 꺼내기", "Pop out as desktop pet")) { PetManager.shared.popOut(s.id) })
             } else {
-                sub.addItem(MenuAction("펫 집어넣기") { PetManager.shared.putBack(s.id) })
+                sub.addItem(MenuAction(L("펫 집어넣기", "Put pet back")) { PetManager.shared.putBack(s.id) })
             }
-            sub.addItem(MenuAction("이 세션 자동 허용", checked: s.autoAllowThisSession) { [store] in
+            sub.addItem(MenuAction(L("이 세션 자동 허용", "Auto-approve this session"), checked: s.autoAllowThisSession) { [store] in
                 store.setAutoAllow(s.id, !s.autoAllowThisSession)
             })
-            sub.addItem(MenuAction("이름·캐릭터 바꾸기…") { [weak self] in self?.editSession(s.id) })
+            sub.addItem(MenuAction(L("이름·캐릭터 바꾸기…", "Change name & character…")) { [weak self] in self?.editSession(s.id) })
             item.submenu = sub
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        menu.addItem(MenuAction("사무실 창", checked: office.isVisible) { [weak self] in
+        menu.addItem(MenuAction(L("사무실 창", "Office window"), checked: office.isVisible) { [weak self] in
             guard let self else { return }
             self.settings.s.office.enabled = !self.office.isVisible
         })
-        menu.addItem(MenuAction("데스크톱 펫", checked: settings.s.pet.enabled) { [settings] in
+        menu.addItem(MenuAction(L("데스크톱 펫", "Desktop pet"), checked: settings.s.pet.enabled) { [settings] in
             settings.s.pet.enabled.toggle()
         })
-        let modeItem = NSMenuItem(title: "펫 움직임", action: nil, keyEquivalent: "")
+        let modeItem = NSMenuItem(title: L("펫 움직임", "Pet movement"), action: nil, keyEquivalent: "")
         let modeMenu = NSMenu()
         for m in PetMode.allCases {
             modeMenu.addItem(MenuAction(m.label, checked: settings.s.pet.mode == m) { [settings] in settings.s.pet.mode = m })
         }
         modeItem.submenu = modeMenu
         menu.addItem(modeItem)
-        let permItem = NSMenuItem(title: "권한 요청", action: nil, keyEquivalent: "")
+        let permItem = NSMenuItem(title: L("권한 요청", "Permission requests"), action: nil, keyEquivalent: "")
         let permMenu = NSMenu()
         for m in PermissionMode.allCases {
             permMenu.addItem(MenuAction(m.label, checked: settings.s.permissions.mode == m) { [settings] in settings.s.permissions.mode = m })
         }
         permItem.submenu = permMenu
         menu.addItem(permItem)
-        menu.addItem(MenuAction("오늘의 기록…") { [weak self] in self?.showSummary() })
-        menu.addItem(MenuAction("알림 소리", checked: settings.s.alerts.sound) { [settings] in
+        menu.addItem(MenuAction(L("오늘의 기록…", "Today's log…")) { [weak self] in self?.showSummary() })
+        menu.addItem(MenuAction(L("알림 소리", "Alert sound"), checked: settings.s.alerts.sound) { [settings] in
             settings.s.alerts.sound.toggle()
         })
         menu.addItem(.separator())
-        menu.addItem(MenuAction("데모 에이전트", checked: store.demoRunning) { [store] in store.toggleDemo() })
-        menu.addItem(MenuAction("설정…") { [weak self] in self?.showSettings(tab: nil) })
+        menu.addItem(MenuAction(L("데모 에이전트", "Demo agent"), checked: store.demoRunning) { [store] in store.toggleDemo() })
+        menu.addItem(MenuAction(L("설정…", "Settings…")) { [weak self] in self?.showSettings(tab: nil) })
         menu.addItem(.separator())
-        menu.addItem(MenuAction("DotDesk 종료") { NSApp.terminate(nil) })
+        menu.addItem(MenuAction(L("DotDesk 종료", "Quit DotDesk")) { NSApp.terminate(nil) })
     }
 
     // MARK: Windows
@@ -212,7 +213,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if summaryWindow == nil {
             let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 460, height: 600),
                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            w.title = "오늘의 기록"
             w.isReleasedWhenClosed = false
             let host = NSHostingView(rootView: DailySummaryView())
             host.sizingOptions = [.preferredContentSize]
@@ -220,6 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             w.center()
             summaryWindow = w
         }
+        summaryWindow?.title = L("오늘의 기록", "Today's log")
         NSApp.activate(ignoringOtherApps: true)
         summaryWindow?.makeKeyAndOrderFront(nil)
     }
@@ -228,7 +229,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if welcomeWindow == nil {
             let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 480, height: 460),
                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            w.title = "DotDesk 시작하기"
             w.isReleasedWhenClosed = false
             let host = NSHostingView(rootView: WelcomeView { [weak w] in w?.close() })
             w.contentView = host
@@ -236,6 +236,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             w.center()
             welcomeWindow = w
         }
+        welcomeWindow?.title = L("DotDesk 시작하기", "Welcome to DotDesk")
         NSApp.activate(ignoringOtherApps: true)
         welcomeWindow?.makeKeyAndOrderFront(nil)
     }
@@ -245,12 +246,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if settingsWindow == nil {
             let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 600, height: 480),
                              styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-            w.title = "DotDesk 설정"
             w.isReleasedWhenClosed = false
             w.contentView = NSHostingView(rootView: SettingsView())
             w.center()
             settingsWindow = w
         }
+        settingsWindow?.title = L("DotDesk 설정", "DotDesk Settings")
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
@@ -260,7 +261,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let s = store.session(key) else { return }
         editWindow?.close()
         let w = NSWindow(contentRect: .zero, styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = "에이전트 꾸미기"
+        w.title = L("에이전트 꾸미기", "Customize agent")
         w.isReleasedWhenClosed = false
         let view = AgentEditView(
             title: store.nickname(s),

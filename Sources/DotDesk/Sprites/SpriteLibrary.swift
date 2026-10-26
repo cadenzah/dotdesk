@@ -225,7 +225,7 @@ final class SpriteLibrary: ObservableObject {
         var out = BuiltinCharacters.looks.enumerated().map {
             CharacterChoice(ref: "builtin:\($0.offset)", name: $0.element.name, group: "기본 도트")
         }
-        out += paCharacters.indices.map { CharacterChoice(ref: "pa:\($0)", name: "캐릭터 \($0 + 1)", group: "Pixel Agents") }
+        out += paCharacters.indices.map { CharacterChoice(ref: "pa:\($0)", name: L("캐릭터 \($0 + 1)", "Character \($0 + 1)"), group: "Pixel Agents") }
         out += pokemon.map { CharacterChoice(ref: "poke:\($0.id)", name: $0.name, group: "포켓몬") }
         return out
     }

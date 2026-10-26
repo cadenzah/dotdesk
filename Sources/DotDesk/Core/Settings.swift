@@ -6,9 +6,9 @@ enum CharacterSource: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .builtin: return "기본 도트 캐릭터"
-        case .pixelAgents: return "Pixel Agents 캐릭터"
-        case .pokemon: return "포켓몬 (PokeTokenBar)"
+        case .builtin: return L("기본 도트 캐릭터", "Pixel characters")
+        case .pixelAgents: return L("Pixel Agents 캐릭터", "Pixel Agents characters")
+        case .pokemon: return L("포켓몬 (PokeTokenBar)", "Pokémon (PokeTokenBar)")
         }
     }
 }
@@ -16,7 +16,7 @@ enum CharacterSource: String, Codable, CaseIterable, Identifiable {
 enum PetMode: String, Codable, CaseIterable, Identifiable {
     case roam, pinned
     var id: String { rawValue }
-    var label: String { self == .roam ? "자유롭게 돌아다니기" : "제자리에 고정" }
+    var label: String { self == .roam ? L("자유롭게 돌아다니기", "Roam freely") : L("제자리에 고정", "Stay in place") }
 }
 
 struct PetSettings: Codable {
@@ -97,6 +97,7 @@ struct SessionOverride: Codable, Equatable {
 }
 
 struct AppSettings: Codable {
+    var language: AppLanguage = .system
     var characterSource: CharacterSource = .builtin
     var pixelAgentsAssetsPath: String?
     var pokemonSpritesPath: String?
@@ -125,7 +126,10 @@ final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
 
     @Published var s: AppSettings {
-        didSet { scheduleSave() }
+        didSet {
+            Lang.korean = Lang.resolve(s.language)
+            scheduleSave()
+        }
     }
 
     private let url = Runtime.appSupport.appendingPathComponent("settings.json")
@@ -133,6 +137,7 @@ final class SettingsStore: ObservableObject {
 
     private init() {
         s = SettingsStore.load(from: url)
+        Lang.korean = Lang.resolve(s.language)
     }
 
     /// Settings files written by older versions may miss keys; overlay them onto defaults before decoding.

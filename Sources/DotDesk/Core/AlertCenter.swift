@@ -32,8 +32,8 @@ final class AlertCenter: NSObject, ObservableObject, UNUserNotificationCenterDel
     func start() {
         if let center {
             center.delegate = self
-            let allow = UNNotificationAction(identifier: "allow", title: "허용")
-            let deny = UNNotificationAction(identifier: "deny", title: "거부", options: [.destructive])
+            let allow = UNNotificationAction(identifier: "allow", title: L("허용", "Allow"))
+            let deny = UNNotificationAction(identifier: "deny", title: L("거부", "Deny"), options: [.destructive])
             center.setNotificationCategories([
                 UNNotificationCategory(identifier: "permission", actions: [allow, deny], intentIdentifiers: []),
             ])
@@ -145,15 +145,15 @@ final class AlertCenter: NSObject, ObservableObject, UNUserNotificationCenterDel
         let c = UNMutableNotificationContent()
         c.title = "\(store.nickname(s)) · \(settings.projectName(s.projectKey))"
         switch kind {
-        case .permission: c.body = s.detail.isEmpty ? "허락을 기다려요" : "허락을 기다려요: \(s.detail)"
-        case .question: c.body = s.detail.isEmpty ? "질문이 있어요" : "질문이 있어요: \(s.detail)"
-        case .done: c.body = "일을 마쳤어요"
+        case .permission: c.body = s.detail.isEmpty ? L("허락을 기다려요", "Waiting for permission") : L("허락을 기다려요: \(s.detail)", "Waiting for permission: \(s.detail)")
+        case .question: c.body = s.detail.isEmpty ? L("질문이 있어요", "Has a question") : L("질문이 있어요: \(s.detail)", "Has a question: \(s.detail)")
+        case .done: c.body = L("일을 마쳤어요", "Finished the work")
         }
         var info: [String: Any] = ["session": s.id]
         if kind == .permission, let p = store.permissions.first(where: { $0.sessionKey == s.id }) {
             info["permission"] = p.id.uuidString
             c.categoryIdentifier = "permission"
-            c.body = "허락을 기다려요: \(p.summary)"
+            c.body = L("허락을 기다려요: \(p.summary)", "Waiting for permission: \(p.summary)")
         }
         c.userInfo = info
         c.threadIdentifier = s.id

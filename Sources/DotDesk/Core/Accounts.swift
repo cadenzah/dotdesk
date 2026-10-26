@@ -38,7 +38,7 @@ enum AccountResolver {
             let org = oa?["organizationName"] as? String
             let orgId = oa?["organizationUuid"] as? String ?? ""
             let accountId = oa?["accountUuid"] as? String ?? email ?? "apikey:\(dir)"
-            return AccountInfo(key: "claude:\(accountId):\(orgId)", provider: .claude, email: email ?? (json == nil ? nil : "API 키"),
+            return AccountInfo(key: "claude:\(accountId):\(orgId)", provider: .claude, email: email ?? (json == nil ? nil : L("API 키", "API key")),
                                orgName: org, plan: oa?["organizationType"] as? String, configDir: dir)
         }
     }
@@ -56,7 +56,7 @@ enum AccountResolver {
             let orgs = auth?["organizations"] as? [[String: Any]] ?? []
             let org = (orgs.first { $0["is_default"] as? Bool == true } ?? orgs.first)?["title"] as? String
             let accountId = auth?["chatgpt_account_id"] as? String ?? email ?? "apikey:\(dir)"
-            return AccountInfo(key: "codex:\(accountId)", provider: .codex, email: email ?? (json == nil ? nil : "API 키"),
+            return AccountInfo(key: "codex:\(accountId)", provider: .codex, email: email ?? (json == nil ? nil : L("API 키", "API key")),
                                orgName: org, plan: auth?["chatgpt_plan_type"] as? String, configDir: dir)
         }
     }

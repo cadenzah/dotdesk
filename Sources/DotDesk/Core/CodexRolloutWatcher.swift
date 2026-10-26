@@ -134,7 +134,7 @@ final class CodexRolloutWatcher {
                 if !starts { DailyStats.shared.recordPrompt(s) }
                 s.setActivity(.thinking, detail: truncate(msg, 40))
                 if starts || s.turnStartedAt == nil { s.turnStartedAt = Date() }
-                if !msg.isEmpty { s.addLog("요청: \(truncate(msg, 60))") }
+                if !msg.isEmpty { s.addLog(L("요청: \(truncate(msg, 60))", "Request: \(truncate(msg, 60))")) }
             }
         case ("event_msg", "task_complete"):
             change = { [store] s in
@@ -142,7 +142,7 @@ final class CodexRolloutWatcher {
                 store.finishTurn(&s)
             }
         case ("event_msg", "turn_aborted"):
-            change = { s in s.setActivity(.idle, detail: "중단됨") }
+            change = { s in s.setActivity(.idle, detail: L("중단됨", "Interrupted")) }
         case ("event_msg", let e) where e.contains("approval_request"):
             change = { s in s.setActivity(.waitingPermission, detail: "") }
         case ("response_item", "function_call"), ("response_item", "custom_tool_call"), ("response_item", "local_shell_call"):
@@ -171,7 +171,7 @@ final class CodexRolloutWatcher {
                 s.addLog("\(a.label) · \(d)")
             }
         case ("response_item", "web_search_call"):
-            change = { s in s.setActivity(.browsing, detail: "웹 검색") }
+            change = { s in s.setActivity(.browsing, detail: L("웹 검색", "Web search")) }
         case ("response_item", "function_call_output"), ("response_item", "custom_tool_call_output"):
             let output = Self.outputText(p["output"])
             let command = (p["call_id"] as? String).flatMap { t.commands.removeValue(forKey: $0) }

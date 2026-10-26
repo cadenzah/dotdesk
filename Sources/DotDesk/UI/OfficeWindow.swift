@@ -14,7 +14,7 @@ final class OfficeWindowController: NSObject, NSWindowDelegate {
                         styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel, .utilityWindow],
                         backing: .buffered, defer: false)
         super.init()
-        panel.title = "DotDesk 사무실"
+        panel.title = L("DotDesk 사무실", "DotDesk office")
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
@@ -137,14 +137,14 @@ struct OfficeView: View {
                 if store.sessions.isEmpty {
                     VStack(spacing: 4) {
                         if integration.claudeConnected {
-                            Text("조용한 사무실").font(.headline)
-                            Text("에이전트가 일을 시작하면 출근해요").font(.caption).foregroundStyle(.secondary)
+                            Text(L("조용한 사무실", "A quiet office")).font(.headline)
+                            Text(L("에이전트가 일을 시작하면 출근해요", "Agents show up when they start working")).font(.caption).foregroundStyle(.secondary)
                         } else {
-                            Text("아직 에이전트와 연결되지 않았어요").font(.headline)
-                            Text("훅을 설치하면 Claude Code가 일할 때 출근해요").font(.caption).foregroundStyle(.secondary)
+                            Text(L("아직 에이전트와 연결되지 않았어요", "Not connected to any agent yet")).font(.headline)
+                            Text(L("훅을 설치하면 Claude Code가 일할 때 출근해요", "Install the hooks and Claude Code shows up when it works")).font(.caption).foregroundStyle(.secondary)
                             HStack(spacing: 6) {
-                                Button("Claude Code 연결하기") { integration.installClaude() }
-                                Button("자세히") { AppDelegate.shared?.showWelcome() }
+                                Button(L("Claude Code 연결하기", "Connect Claude Code")) { integration.installClaude() }
+                                Button(L("자세히", "Learn more")) { AppDelegate.shared?.showWelcome() }
                             }
                             .controlSize(.small)
                             .padding(.top, 4)
@@ -158,7 +158,7 @@ struct OfficeView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
                 if let a = stats.announcement {
-                    Label("사무실에 \(withSubjectParticle(a.decoration.name)) 생겼어요", systemImage: "sparkles")
+                    Label(L("사무실에 \(withSubjectParticle(a.decoration.name)) 생겼어요", "New in the office: \(a.decoration.name)"), systemImage: "sparkles")
                         .font(.system(size: 12, weight: .semibold))
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(Capsule().fill(.regularMaterial))
@@ -193,7 +193,7 @@ struct WhiteboardLabel: View {
         ZStack(alignment: .topLeading) {
             Color.clear.contentShape(Rectangle())
             if scale >= 2.5 {
-                Text(d.busySeconds > 0 ? "오늘 \(formatDuration(d.busySeconds))" : "오늘")
+                Text(d.busySeconds > 0 ? L("오늘 \(formatDuration(d.busySeconds))", "Today \(formatDuration(d.busySeconds))") : L("오늘", "Today"))
                     .font(.system(size: 3.6 * scale, weight: .semibold))
                     .foregroundStyle(Color(white: 0.25))
                     .lineLimit(1)
@@ -204,7 +204,7 @@ struct WhiteboardLabel: View {
             }
         }
         .frame(width: rect.width * scale, height: rect.height * scale)
-        .help("오늘 \(formatDuration(d.busySeconds)) 일했어요 · 요청 \(d.prompts) · 고친 파일 \(d.files.count) · 테스트 통과 \(d.testsPassed)\n눌러서 오늘의 기록 보기")
+        .help(L("오늘 \(formatDuration(d.busySeconds)) 일했어요 · 요청 \(d.prompts) · 고친 파일 \(d.files.count) · 테스트 통과 \(d.testsPassed)\n눌러서 오늘의 기록 보기", "Busy \(formatDuration(d.busySeconds)) today · Requests \(d.prompts) · Files edited \(d.files.count) · Tests passed \(d.testsPassed)\nClick to see today's log"))
         .onTapGesture { AppDelegate.shared?.showSummary() }
     }
 }
@@ -218,29 +218,29 @@ struct SessionMenu: View {
         let s = session
         Text("\(store.nickname(s)) · \(settings.projectName(s.projectKey))")
         if WindowFocuser.canFocus(s) {
-            Button("에이전트 창으로 가기") { WindowFocuser.focusOrBeep(s) }
+            Button(L("에이전트 창으로 가기", "Go to agent's window")) { WindowFocuser.focusOrBeep(s) }
         }
-        Button("이름·캐릭터 바꾸기…") { AppDelegate.shared?.editSession(s.id) }
-        Menu("캐릭터") {
+        Button(L("이름·캐릭터 바꾸기…", "Change name & character…")) { AppDelegate.shared?.editSession(s.id) }
+        Menu(L("캐릭터", "Character")) {
             CharacterPickerMenu(current: store.characterRef(s)) { ref in
                 store.setCharacter(s.id, ref)
             }
         }
-        Button("이 캐릭터를 프로젝트 기본으로") {
+        Button(L("이 캐릭터를 프로젝트 기본으로", "Use this character for the project")) {
             settings.s.projects[s.projectKey, default: ProjectSettings()].character = store.characterRef(s)
         }
         Divider()
         if PetManager.shared.pinned[s.id] == nil {
-            Button("데스크톱 펫으로 꺼내기") { PetManager.shared.popOut(s.id) }
+            Button(L("데스크톱 펫으로 꺼내기", "Pop out as desktop pet")) { PetManager.shared.popOut(s.id) }
         } else {
-            Button("펫 집어넣기") { PetManager.shared.putBack(s.id) }
+            Button(L("펫 집어넣기", "Put pet back")) { PetManager.shared.putBack(s.id) }
         }
-        Toggle("이 세션 자동 허용", isOn: Binding(get: { s.autoAllowThisSession }, set: { on in
-            if on, !AutoAllowWarning.confirm("이 세션") { return }
+        Toggle(L("이 세션 자동 허용", "Auto-approve this session"), isOn: Binding(get: { s.autoAllowThisSession }, set: { on in
+            if on, !AutoAllowWarning.confirm(L("이 세션", "this session")) { return }
             store.setAutoAllow(s.id, on)
         }))
         Divider()
-        Button("프로젝트 설정…") { AppDelegate.shared?.showSettings(tab: .projects) }
+        Button(L("프로젝트 설정…", "Project settings…")) { AppDelegate.shared?.showSettings(tab: .projects) }
     }
 }
 
@@ -253,7 +253,7 @@ struct CharacterPickerMenu: View {
         let groups = Dictionary(grouping: sprites.choices, by: \.group)
         ForEach(["기본 도트", "Pixel Agents", "포켓몬"], id: \.self) { g in
             if let list = groups[g], !list.isEmpty {
-                Menu(g) {
+                Menu(characterGroupLabel(g)) {
                     ForEach(list) { c in
                         Button { pick(c.ref) } label: {
                             Text(c.ref == current ? "✓ \(c.name)" : c.name)
@@ -281,27 +281,27 @@ struct SessionDetail: View {
                         .background(Capsule().fill(Color.accentColor.opacity(0.15)))
                     Spacer()
                     if WindowFocuser.canFocus(s) {
-                        Button("창으로 가기") { WindowFocuser.focusOrBeep(s) }
+                        Button(L("창으로 가기", "Go to window")) { WindowFocuser.focusOrBeep(s) }
                             .controlSize(.small)
-                            .help("에이전트가 일하는 터미널이나 앱 창을 앞으로 가져와요 (캐릭터를 더블클릭해도 돼요)")
+                            .help(L("에이전트가 일하는 터미널이나 앱 창을 앞으로 가져와요 (캐릭터를 더블클릭해도 돼요)", "Brings the agent's terminal or app window to the front (or double-click the character)"))
                     }
                 }
                 Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
-                    GridRow { Text("프로젝트").foregroundStyle(.secondary); Text(settings.projectName(s.projectKey)) }
+                    GridRow { Text(L("프로젝트", "Project")).foregroundStyle(.secondary); Text(settings.projectName(s.projectKey)) }
                     if let a = s.account {
-                        GridRow { Text("계정").foregroundStyle(.secondary); Text("\(settings.accountLabel(a))\(a.email.map { " (\($0))" } ?? "")") }
+                        GridRow { Text(L("계정", "Account")).foregroundStyle(.secondary); Text("\(settings.accountLabel(a))\(a.email.map { " (\($0))" } ?? "")") }
                     }
-                    if let cwd = s.cwd { GridRow { Text("폴더").foregroundStyle(.secondary); Text(abbreviatePath(cwd)).lineLimit(1).truncationMode(.middle) } }
-                    if let m = s.model ?? s.usage?.model { GridRow { Text("모델").foregroundStyle(.secondary); Text(m) } }
+                    if let cwd = s.cwd { GridRow { Text(L("폴더", "Folder")).foregroundStyle(.secondary); Text(abbreviatePath(cwd)).lineLimit(1).truncationMode(.middle) } }
+                    if let m = s.model ?? s.usage?.model { GridRow { Text(L("모델", "Model")).foregroundStyle(.secondary); Text(m) } }
                     if let u = s.usage, u.contextTokens != nil || u.outputTokens > 0 {
                         GridRow {
-                            Text("컨텍스트").foregroundStyle(.secondary)
-                            if u.contextTokens != nil { ContextGauge(usage: u) } else { Text("정리한 뒤 다시 세는 중") }
+                            Text(L("컨텍스트", "Context")).foregroundStyle(.secondary)
+                            if u.contextTokens != nil { ContextGauge(usage: u) } else { Text(L("정리한 뒤 다시 세는 중", "Recounting after compaction")) }
                         }
-                        GridRow { Text("출력 토큰").foregroundStyle(.secondary); Text(formatTokens(u.outputTokens)) }
+                        GridRow { Text(L("출력 토큰", "Output tokens")).foregroundStyle(.secondary); Text(formatTokens(u.outputTokens)) }
                     }
                     if !s.subagents.isEmpty {
-                        GridRow { Text("팀원").foregroundStyle(.secondary); Text(s.subagents.map { "\($0.type)(\($0.activity.label))" }.joined(separator: ", ")) }
+                        GridRow { Text(L("팀원", "Teammates")).foregroundStyle(.secondary); Text(s.subagents.map { "\($0.type)(\($0.activity.label))" }.joined(separator: ", ")) }
                     }
                 }
                 .font(.caption)
@@ -322,7 +322,7 @@ struct SessionDetail: View {
             .padding(12)
             .frame(width: 320)
         } else {
-            Text("퇴근했어요").padding()
+            Text(L("퇴근했어요", "Gone home")).padding()
         }
     }
 }

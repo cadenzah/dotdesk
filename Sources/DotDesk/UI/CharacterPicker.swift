@@ -45,23 +45,23 @@ struct AgentEditView: View {
                         Text(subtitle).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     }
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("이름").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        Text(L("이름", "Name")).font(.caption.weight(.medium)).foregroundStyle(.secondary)
                         TextField(namePlaceholder, text: $name)
                             .textFieldStyle(.roundedBorder)
                             .focused($nameFocused)
                             .onSubmit { save(name, ref) }
                     }
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("캐릭터").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        Text(L("캐릭터", "Character")).font(.caption.weight(.medium)).foregroundStyle(.secondary)
                         HStack(spacing: 6) {
                             Text(sprites.displayName(shown)).font(.body.weight(.semibold)).lineLimit(1)
                             if ref == nil {
-                                Text("자동").font(.caption2.weight(.semibold))
+                                Text(L("자동", "Auto")).font(.caption2.weight(.semibold))
                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                     .background(Capsule().fill(Color.accentColor.opacity(0.15)))
                                     .foregroundStyle(Color.accentColor)
                             } else {
-                                Button("자동으로 되돌리기") { ref = nil }
+                                Button(L("자동으로 되돌리기", "Back to auto")) { ref = nil }
                                     .buttonStyle(.link).font(.caption)
                             }
                         }
@@ -76,7 +76,7 @@ struct AgentEditView: View {
                 let available = Self.groups.filter { g in sprites.choices.contains { $0.group == g } }
                 if available.count > 1 {
                     Picker("", selection: $tab) {
-                        ForEach(available, id: \.self) { Text($0).tag($0) }
+                        ForEach(available, id: \.self) { Text(characterGroupLabel($0)).tag($0) }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -97,8 +97,8 @@ struct AgentEditView: View {
 
             HStack {
                 Spacer()
-                Button("취소", action: cancel).keyboardShortcut(.cancelAction)
-                Button("저장") { save(name, ref) }
+                Button(L("취소", "Cancel"), action: cancel).keyboardShortcut(.cancelAction)
+                Button(L("저장", "Save")) { save(name, ref) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
             }
@@ -116,7 +116,7 @@ private struct PreviewStage: View {
     let ref: String
     let shirt: RGBA
 
-    private static let poses: [(Pose, String)] = [(.walk, "걷기"), (.type, "타이핑"), (.read, "읽기")]
+    private static var poses: [(Pose, String)] { [(.walk, L("걷기", "Walk")), (.type, L("타이핑", "Type")), (.read, L("읽기", "Read"))] }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0 / 8)) { ctx in

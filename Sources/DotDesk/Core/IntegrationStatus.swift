@@ -37,7 +37,7 @@ final class IntegrationStatus: ObservableObject {
             try HookInstaller.installClaude(configDir: configDir)
             lastError = nil
         } catch {
-            lastError = "설치하지 못했어요: \(error.localizedDescription)"
+            lastError = L("설치하지 못했어요: \(error.localizedDescription)", "Couldn't install: \(error.localizedDescription)")
         }
         refresh()
     }

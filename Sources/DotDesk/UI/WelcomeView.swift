@@ -10,45 +10,51 @@ struct WelcomeView: View {
             HStack(spacing: 14) {
                 CharacterThumb(ref: "builtin:0", shirt: RGBA(0xff6b6b), size: 34)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("DotDesk에 오신 걸 환영해요").font(.title2.bold())
-                    Text("에이전트가 일하는 모습을 도트 캐릭터로 보여줘요.").foregroundStyle(.secondary)
+                    Text(L("DotDesk에 오신 걸 환영해요", "Welcome to DotDesk")).font(.title2.bold())
+                    Text(L("에이전트가 일하는 모습을 도트 캐릭터로 보여줘요.", "Watch your agents work as pixel characters.")).foregroundStyle(.secondary)
                 }
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("에이전트와 연결하기").font(.headline)
-                Text("Claude Code가 일할 때마다 DotDesk에 알려 주도록 훅(hook)을 설치해요. 연결하기 전에는 캐릭터가 계속 쉬기만 해요.")
+                Text(L("에이전트와 연결하기", "Connect your agents")).font(.headline)
+                Text(L("Claude Code가 일할 때마다 DotDesk에 알려 주도록 훅(hook)을 설치해요. 연결하기 전에는 캐릭터가 계속 쉬기만 해요.",
+                       "DotDesk installs hooks so Claude Code tells it whenever it works. Until you connect, the characters just sit idle."))
                     .fixedSize(horizontal: false, vertical: true)
                 VStack(alignment: .leading, spacing: 6) {
-                    point("doc.badge.plus", "~/.claude/settings.json의 hooks에 DotDesk 항목만 추가해요.")
-                    point("checkmark.shield", "기존 설정과 다른 훅은 그대로 두고, 처음 한 번 settings.json.dotdesk.backup으로 백업해요. 파일 안 항목 순서는 정렬될 수 있어요.")
-                    point("bolt", "터미널의 Claude Code와 Claude 데스크톱 앱의 Code 탭에, 이미 열려 있는 세션까지 바로 적용돼요.")
-                    point("moon.zzz", "DotDesk가 꺼져 있으면 훅은 아무것도 하지 않고 바로 끝나서, 에이전트 작업에 영향을 주지 않아요.")
-                    point("arrow.uturn.backward", "설정 > 연동에서 언제든 제거할 수 있어요.")
+                    point("doc.badge.plus", L("~/.claude/settings.json의 hooks에 DotDesk 항목만 추가해요.",
+                                              "Adds only DotDesk entries to the hooks in ~/.claude/settings.json."))
+                    point("checkmark.shield", L("기존 설정과 다른 훅은 그대로 두고, 처음 한 번 settings.json.dotdesk.backup으로 백업해요. 파일 안 항목 순서는 정렬될 수 있어요.",
+                                                "Your existing settings and other hooks stay as they are, and a one-time backup is saved as settings.json.dotdesk.backup. Keys in the file may get reordered."))
+                    point("bolt", L("터미널의 Claude Code와 Claude 데스크톱 앱의 Code 탭에, 이미 열려 있는 세션까지 바로 적용돼요.",
+                                    "Takes effect right away in Claude Code in the terminal and the Code tab of the Claude desktop app, even in sessions already open."))
+                    point("moon.zzz", L("DotDesk가 꺼져 있으면 훅은 아무것도 하지 않고 바로 끝나서, 에이전트 작업에 영향을 주지 않아요.",
+                                        "When DotDesk isn't running, the hooks exit immediately without doing anything, so your agents aren't affected."))
+                    point("arrow.uturn.backward", L("설정 > 연동에서 언제든 제거할 수 있어요.", "You can remove them anytime in Settings > Integrations."))
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
             }
 
             if status.claudeConnected {
-                Label("연결됐어요! 에이전트에게 일을 시키면 사무실에 출근해요.", systemImage: "checkmark.circle.fill")
+                Label(L("연결됐어요! 에이전트에게 일을 시키면 사무실에 출근해요.", "Connected! Give an agent some work and it'll show up at the office."), systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             }
             if let e = status.lastError {
                 Text(e).foregroundStyle(.red).font(.callout)
             }
-            Text("Codex는 설정 > 연동에서 따로 연결할 수 있어요. 연결하지 않아도 세션 기록 파일로 활동을 보여줘요.")
+            Text(L("Codex는 설정 > 연동에서 따로 연결할 수 있어요. 연결하지 않아도 세션 기록 파일로 활동을 보여줘요.",
+                    "You can connect Codex separately in Settings > Integrations. Even without it, DotDesk shows its activity from session log files."))
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack {
-                Button("설정 열기") { AppDelegate.shared?.showSettings(tab: .integrations) }
+                Button(L("설정 열기", "Open Settings")) { AppDelegate.shared?.showSettings(tab: .integrations) }
                 Spacer()
                 if status.claudeConnected {
-                    Button("시작하기") { close() }.keyboardShortcut(.defaultAction)
+                    Button(L("시작하기", "Get started")) { close() }.keyboardShortcut(.defaultAction)
                 } else {
-                    Button("나중에") { close() }
-                    Button("Claude Code 연결하기") { status.installClaude() }.keyboardShortcut(.defaultAction)
+                    Button(L("나중에", "Later")) { close() }
+                    Button(L("Claude Code 연결하기", "Connect Claude Code")) { status.installClaude() }.keyboardShortcut(.defaultAction)
                 }
             }
         }

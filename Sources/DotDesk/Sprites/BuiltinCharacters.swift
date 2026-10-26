@@ -28,23 +28,24 @@ enum BuiltinCharacters {
         case walk1 = 0, stand, walk2, type1, type2, read1, read2, sleep, cheer, doze, nap
     }
 
-    static let looks: [Look] = [
-        Look(name: "밤톨머리", skin: RGBA(0xffd9b8), hair: RGBA(0x6b4423), style: .short, pants: RGBA(0x2f3b52), shoes: RGBA(0x3b2f2f)),
-        Look(name: "긴 생머리", skin: RGBA(0xf1c27d), hair: RGBA(0x2b2b35), style: .long, pants: RGBA(0x6d6875), shoes: RGBA(0x2a2a2a),
+    /// Computed so the names follow the UI language.
+    static var looks: [Look] { [
+        Look(name: L("밤톨머리", "Buzz cut"), skin: RGBA(0xffd9b8), hair: RGBA(0x6b4423), style: .short, pants: RGBA(0x2f3b52), shoes: RGBA(0x3b2f2f)),
+        Look(name: L("긴 생머리", "Long straight hair"), skin: RGBA(0xf1c27d), hair: RGBA(0x2b2b35), style: .long, pants: RGBA(0x6d6875), shoes: RGBA(0x2a2a2a),
              outfit: .stripes, bottom: .skirt),
-        Look(name: "삐죽 금발", skin: RGBA(0xe0ac69), hair: RGBA(0xe8c15a), style: .spiky, pants: RGBA(0x264653), shoes: RGBA(0x4a3426),
+        Look(name: L("삐죽 금발", "Spiky blond"), skin: RGBA(0xe0ac69), hair: RGBA(0xe8c15a), style: .spiky, pants: RGBA(0x264653), shoes: RGBA(0x4a3426),
              outfit: .hoodie),
-        Look(name: "핑크 똥머리", skin: RGBA(0xffe0c4), hair: RGBA(0xf28cb5), style: .bun, pants: RGBA(0x5a4a78), shoes: RGBA(0x3b2f2f),
+        Look(name: L("핑크 똥머리", "Pink bun"), skin: RGBA(0xffe0c4), hair: RGBA(0xf28cb5), style: .bun, pants: RGBA(0x5a4a78), shoes: RGBA(0x3b2f2f),
              outfit: .overalls, accent: RGBA(0xfff4e6)),
-        Look(name: "모자 쓴 친구", skin: RGBA(0xc68642), hair: RGBA(0x1e1e28), style: .cap, pants: RGBA(0x343a40), shoes: RGBA(0xf1f3f5),
+        Look(name: L("모자 쓴 친구", "Cap wearer"), skin: RGBA(0xc68642), hair: RGBA(0x1e1e28), style: .cap, pants: RGBA(0x343a40), shoes: RGBA(0xf1f3f5),
              bottom: .shorts),
-        Look(name: "주황 머리", skin: RGBA(0xffd9b8), hair: RGBA(0xd9622b), style: .short, pants: RGBA(0x495057), shoes: RGBA(0x2a2a2a),
+        Look(name: L("주황 머리", "Ginger"), skin: RGBA(0xffd9b8), hair: RGBA(0xd9622b), style: .short, pants: RGBA(0x495057), shoes: RGBA(0x2a2a2a),
              outfit: .jacket),
-        Look(name: "은발 장발", skin: RGBA(0x8d5524), hair: RGBA(0xdedede), style: .long, pants: RGBA(0x6c757d), shoes: RGBA(0x5c3d2e),
+        Look(name: L("은발 장발", "Long silver hair"), skin: RGBA(0x8d5524), hair: RGBA(0xdedede), style: .long, pants: RGBA(0x6c757d), shoes: RGBA(0x5c3d2e),
              outfit: .jacket, bottom: .skirt, accent: RGBA(0xffec99)),
-        Look(name: "파란 삐죽", skin: RGBA(0xf1c27d), hair: RGBA(0x4a6fd1), style: .spiky, pants: RGBA(0x3b3b3b), shoes: RGBA(0xc92a2a),
+        Look(name: L("파란 삐죽", "Blue spikes"), skin: RGBA(0xf1c27d), hair: RGBA(0x4a6fd1), style: .spiky, pants: RGBA(0x3b3b3b), shoes: RGBA(0xc92a2a),
              outfit: .shirtTie, accent: RGBA(0x2b2d42)),
-    ]
+    ] }
 
     static func sheet(look index: Int, shirt: RGBA) -> CGImage {
         sheet(looks[((index % looks.count) + looks.count) % looks.count], shirt: shirt)
@@ -71,10 +72,14 @@ enum BuiltinCharacters {
         .jacket: [0xf8f9fa, 0xffec99, 0xd0ebff],
         .overalls: [0xfff4e6, 0xf8f9fa, 0xd0ebff],
     ]
-    private static let styleNames: [HairStyle: String] = [.short: "짧은 머리", .long: "긴 머리", .bun: "똥머리", .spiky: "삐죽머리", .cap: "모자"]
-    private static let outfitNames: [Outfit: String] = [
-        .tee: "반팔 티", .hoodie: "후드티", .shirtTie: "넥타이", .jacket: "재킷", .stripes: "줄무늬", .overalls: "멜빵바지",
-    ]
+    private static var styleNames: [HairStyle: String] {
+        [.short: L("짧은 머리", "Short hair"), .long: L("긴 머리", "Long hair"), .bun: L("똥머리", "Bun"),
+         .spiky: L("삐죽머리", "Spiky hair"), .cap: L("모자", "Cap")]
+    }
+    private static var outfitNames: [Outfit: String] { [
+        .tee: L("반팔 티", "Tee"), .hoodie: L("후드티", "Hoodie"), .shirtTie: L("넥타이", "Tie"), .jacket: L("재킷", "Jacket"),
+        .stripes: L("줄무늬", "Stripes"), .overalls: L("멜빵바지", "Overalls"),
+    ] }
 
     static func randomLook(seed: UInt64) -> Look {
         var rng = SplitMix64(seed)

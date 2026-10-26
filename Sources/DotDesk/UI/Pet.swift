@@ -46,7 +46,7 @@ final class PetController: NSObject {
         panel = NSPanel(contentRect: CGRect(origin: .zero, size: Self.windowSize),
                         styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         super.init()
-        panel.title = "DotDesk 펫"
+        panel.title = L("DotDesk 펫", "DotDesk pet")
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -119,8 +119,8 @@ final class PetController: NSObject {
             if s != nil, activity != .sleeping { speechUntil = Date().addingTimeInterval(6) }
         }
         if let a = DailyStats.shared.announcement {
-            model.title = "사무실에 \(withSubjectParticle(a.decoration.name)) 생겼어요!"
-            model.subtitle = "\(a.decoration.goal) 달성"
+            model.title = L("사무실에 \(withSubjectParticle(a.decoration.name)) 생겼어요!", "New in the office: \(a.decoration.name)!")
+            model.subtitle = L("\(a.decoration.goal) 달성", "Done: \(a.decoration.goal)")
             speechUntil = max(speechUntil, a.until)
         } else if let s {
             let nick = store.nickname(s)
@@ -131,8 +131,8 @@ final class PetController: NSObject {
             if let a = s.account { parts.append(settings.accountLabel(a)) }
             model.subtitle = parts.joined(separator: " · ")
         } else {
-            model.title = "쉬는 중"
-            model.subtitle = "일하는 에이전트가 없어요"
+            model.title = L("쉬는 중", "On a break")
+            model.subtitle = L("일하는 에이전트가 없어요", "No agents working")
         }
         let usage = settings.s.showContextGauge ? s?.usage : nil
         if model.usage != usage { model.usage = usage }
@@ -294,24 +294,24 @@ final class PetController: NSObject {
             m.addItem(withTitle: "\(store.nickname(s)) · \(settings.projectName(s.projectKey))", action: nil, keyEquivalent: "").isEnabled = false
             m.addItem(.separator())
             if WindowFocuser.canFocus(s) {
-                m.addItem(MenuAction("에이전트 창으로 가기") { WindowFocuser.focusOrBeep(s) })
+                m.addItem(MenuAction(L("에이전트 창으로 가기", "Go to agent's window")) { WindowFocuser.focusOrBeep(s) })
             }
-            m.addItem(MenuAction("이 세션 자동 허용", checked: s.autoAllowThisSession) { [store] in
+            m.addItem(MenuAction(L("이 세션 자동 허용", "Auto-approve this session"), checked: s.autoAllowThisSession) { [store] in
                 let on = !s.autoAllowThisSession
-                if on, !AutoAllowWarning.confirm("이 세션") { return }
+                if on, !AutoAllowWarning.confirm(L("이 세션", "this session")) { return }
                 store.setAutoAllow(s.id, on)
             })
-            m.addItem(MenuAction("캐릭터·이름 바꾸기…") { AppDelegate.shared?.editSession(s.id) })
+            m.addItem(MenuAction(L("캐릭터·이름 바꾸기…", "Change name & character…")) { AppDelegate.shared?.editSession(s.id) })
         }
-        m.addItem(MenuAction(settings.s.pet.mode == .roam ? "제자리에 고정" : "자유롭게 돌아다니기") { [settings] in
+        m.addItem(MenuAction(settings.s.pet.mode == .roam ? L("제자리에 고정", "Stay in place") : L("자유롭게 돌아다니기", "Roam freely")) { [settings] in
             settings.s.pet.mode = settings.s.pet.mode == .roam ? .pinned : .roam
             if settings.s.pet.mode == .pinned { settings.s.pet.pinnedOrigin = [self.x, self.baseline] }
         })
-        m.addItem(MenuAction("사무실 열기") { AppDelegate.shared?.showOffice() })
+        m.addItem(MenuAction(L("사무실 열기", "Open office")) { AppDelegate.shared?.showOffice() })
         if pinnedSession != nil {
-            m.addItem(MenuAction("이 펫 집어넣기") { [weak self] in self?.onClose?() })
+            m.addItem(MenuAction(L("이 펫 집어넣기", "Put this pet back")) { [weak self] in self?.onClose?() })
         } else {
-            m.addItem(MenuAction("펫 숨기기") { [settings] in settings.s.pet.enabled = false })
+            m.addItem(MenuAction(L("펫 숨기기", "Hide pet")) { [settings] in settings.s.pet.enabled = false })
         }
         return m
     }
@@ -517,7 +517,8 @@ struct PermissionCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "hand.raised.fill").foregroundStyle(.orange)
-                Text("\(withSubjectParticle(s.map(store.nickname) ?? "에이전트"))\(p.agentType.map { " (\($0))" } ?? "") 허락을 기다려요")
+                Text(L("\(withSubjectParticle(s.map(store.nickname) ?? "에이전트"))\(p.agentType.map { " (\($0))" } ?? "") 허락을 기다려요",
+                       "\(s.map(store.nickname) ?? "Agent")\(p.agentType.map { " (\($0))" } ?? "") is waiting for permission"))
                     .font(.system(size: 11, weight: .semibold))
                     .lineLimit(1)
             }
@@ -532,11 +533,11 @@ struct PermissionCard: View {
                 Text(r).font(.system(size: 10)).foregroundStyle(.red)
             }
             HStack(spacing: 6) {
-                Button("허용") { store.resolve(p, .allow) }
+                Button(L("허용", "Allow")) { store.resolve(p, .allow) }
                     .keyboardShortcut(.defaultAction)
-                Button("거부") { store.resolve(p, .deny(nil)) }
-                Button("이 세션 자동 허용") {
-                    if AutoAllowWarning.confirm("이 세션") { store.resolve(p, .allow, allowSession: true) }
+                Button(L("거부", "Deny")) { store.resolve(p, .deny(nil)) }
+                Button(L("이 세션 자동 허용", "Auto-approve this session")) {
+                    if AutoAllowWarning.confirm(L("이 세션", "this session")) { store.resolve(p, .allow, allowSession: true) }
                 }
                 Spacer(minLength: 0)
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -571,11 +572,13 @@ struct ContextGauge: View {
             }
             .frame(width: compact ? nil : 70, height: compact ? 3 : 4)
             if !compact {
-                Text("컨텍스트 \(Int((f * 100).rounded()))% · \(formatTokens(usage.contextTokens ?? 0))/\(formatTokens(window))")
+                Text(L("컨텍스트 \(Int((f * 100).rounded()))% · \(formatTokens(usage.contextTokens ?? 0))/\(formatTokens(window))",
+                       "Context \(Int((f * 100).rounded()))% · \(formatTokens(usage.contextTokens ?? 0))/\(formatTokens(window))"))
                     .font(.system(size: 9).monospacedDigit()).foregroundStyle(.secondary)
             }
         }
-        .help("컨텍스트 \(formatTokens(usage.contextTokens ?? 0)) / \(formatTokens(window)) · 이번 세션 출력 \(formatTokens(usage.outputTokens)) 토큰")
+        .help(L("컨텍스트 \(formatTokens(usage.contextTokens ?? 0)) / \(formatTokens(window)) · 이번 세션 출력 \(formatTokens(usage.outputTokens)) 토큰",
+                 "Context \(formatTokens(usage.contextTokens ?? 0)) / \(formatTokens(window)) · \(formatTokens(usage.outputTokens)) output tokens this session"))
     }
 
     static func color(_ f: Double) -> Color {

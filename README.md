@@ -7,17 +7,17 @@ A macOS app that shows the AI coding agents working on your Mac (Claude Code, Co
 - **Desktop pet** — Active agents wander along the bottom of your screen, then stop to type or read documents when they start working. A speech-bubble icon shows what they're doing right now (reading, searching, writing, running commands, browsing the web, calling teammates, planning…). While resting, they take turns napping, sipping coffee, gaming, reading and stretching.
 - **Office window** — In a small window in the corner of your screen, agents sit and work in areas grouped by project. Their monitors change with what they're doing, and subagents appear as teammates in front of the desk. After a while of inactivity, they take a break and pick something at random — a nap on the sofa, reading on the beanbag, coffee, watering the plant, gazing out the window, chatting in pairs by a window, stretching — and switch to something else after a bit. When a new session starts in the same project, a character whose session ended or is resting takes it on (so `/clear` keeps the same face). If the session they left gets busy again, a free colleague or a new character steps in.
 - **Answer permission requests** — Allow or deny from the pet's speech bubble without switching to the agent's window, or auto-approve (bypass). Auto-approve turns off permission checks entirely, so read [the caveats](#before-turning-on-auto-approve) first.
-- **Jump to the agent's window** — Click a pet, or double-click a character in the office, to bring forward the terminal or app that agent runs in. Terminal and iTerm2 switch to the exact tab (macOS asks once to let DotDesk control them), and tmux panes are selected too. In other apps such as VS Code, Cursor or Ghostty the app comes forward, and with Accessibility access (Settings → **연동** (Integrations)) DotDesk raises the window named after the project.
-- **Sounds and notifications** — A sound (and optionally a macOS notification) when an agent waits for permission, asks a question, or finishes a task that took a while. Click the notification to jump to the agent's window, or allow/deny right from it when answering from the speech bubble. If you don't answer for a minute, the pet walks to the middle of the screen, waves and calls once more. It stays quiet while the agent's app is in front, and the menu bar has a quick **알림 소리** (Alert sound) toggle. Set it up in the **알림** (Alerts) tab in Settings.
+- **Jump to the agent's window** — Click a pet, or double-click a character in the office, to bring forward the terminal or app that agent runs in. Terminal and iTerm2 switch to the exact tab (macOS asks once to let DotDesk control them), and tmux panes are selected too. In other apps such as VS Code, Cursor or Ghostty the app comes forward, and with Accessibility access (Settings → **Integrations**) DotDesk raises the window named after the project.
+- **Sounds and notifications** — A sound (and optionally a macOS notification) when an agent waits for permission, asks a question, or finishes a task that took a while. Click the notification to jump to the agent's window, or allow/deny right from it when answering from the speech bubble. If you don't answer for a minute, the pet walks to the middle of the screen, waves and calls once more. It stays quiet while the agent's app is in front, and the menu bar has a quick **Alert sound** toggle. Set it up in the **Alerts** tab in Settings.
 - **Reactions** — Characters shake with a dizzy bubble when a tool call fails, cheer with a sparkle when a test run passes (pytest, jest, `swift test`, `go test`, `npm test`…) and show a red ✕ when it fails, and throw confetti after finishing a task that took over five minutes.
-- **Daily log** — Keeps a tally of each day: busy time (hour by hour and per project), requests, finished tasks, edited files, test results and tokens. A whiteboard on the office wall charts the last 12 hours, and once you're done for the day (after 6 pm, when every agent has been idle for 20 minutes) a summary card opens with the day and the past week. Open it any time from the menu bar (**오늘의 기록…** (Today's log)) or by clicking the whiteboard.
+- **Daily log** — Keeps a tally of each day: busy time (hour by hour and per project), requests, finished tasks, edited files, test results and tokens. A whiteboard on the office wall charts the last 12 hours, and once you're done for the day (after 6 pm, when every agent has been idle for 20 minutes) a summary card opens with the day and the past week. Open it any time from the menu bar (**Today's log…**) or by clicking the whiteboard.
 - **Teamwork** — When an agent calls a subagent, the teammate walks up to the desk, they take turns talking, and the papers change hands; when the teammate is done they hand the results back before leaving. Messages between agents (`SendMessage`, Codex `send_input`) fly across the office as paper planes, and the pet says when work was handed off or brought back.
-- **A growing office** — The office collects decorations as you work with your agents: a picture frame after the first finished task, string lights after three days, a floor lamp after 100 requests, a trophy shelf for passing tests (more trophies at 50 and 200), a cat on the window sill after ten long tasks, and a plaque at 100 hours. The pet announces each one, and Settings → **일반** (General) shows what's next.
-- **Context gauge** — Reads each session's transcript to show how full its context window is, as a bar in the pet's speech bubble and under each name tag in the office, along with the tokens generated so far. Past 80% the character starts to sweat, and while the conversation is being compacted they pack papers into a box. Claude's window is guessed (1M when the model says `[1m]` or a session went past 200K, otherwise 200K) and can be set in the **일반** (General) tab; Codex reports its own.
+- **A growing office** — The office collects decorations as you work with your agents: a picture frame after the first finished task, string lights after three days, a floor lamp after 100 requests, a trophy shelf for passing tests (more trophies at 50 and 200), a cat on the window sill after ten long tasks, and a plaque at 100 hours. The pet announces each one, and Settings → **General** shows what's next.
+- **Context gauge** — Reads each session's transcript to show how full its context window is, as a bar in the pet's speech bubble and under each name tag in the office, along with the tokens generated so far. Past 80% the character starts to sweat, and while the conversation is being compacted they pack papers into a box. Claude's window is guessed (1M when the model says `[1m]` or a session went past 200K, otherwise 200K) and can be set in the **General** tab; Codex reports its own.
 - **Multiple accounts and organizations** — Reads the signed-in account for each `CLAUDE_CONFIG_DIR`/`CODEX_HOME` and tells them apart with desk flag colors and name tags.
 - **Pick your characters** — Each new agent gets a random mix of hair and outfit. Or choose per agent or per project from 8 built-in pixel presets, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) characters, or the Pokémon collected by [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).
 
-> The app's UI is currently in Korean. Labels below are quoted as they appear in the app, with an English translation in parentheses.
+> The app is in English and Korean. It follows your system language; to switch, use **Language** in Settings → **General**.
 
 ## Install
 
@@ -57,13 +57,13 @@ Requires macOS 14 or later and Xcode (or a Swift 5.10+ toolchain).
 open build/DotDesk.app
 ```
 
-On first launch, the **연동** (Integrations) tab in Settings opens. Click **훅 설치** (Install hooks) and DotDesk starts receiving events. This takes effect immediately, even for Claude Code sessions that are already open.
+On first launch, the **Integrations** tab in Settings opens. Click **Install hooks** and DotDesk starts receiving events. This takes effect immediately, even for Claude Code sessions that are already open.
 
-To try it without a real agent, turn on **데모 에이전트** (Demo agent) in the menu bar, or run `scripts/simulate-agent.sh`.
+To try it without a real agent, turn on **Demo agent** in the menu bar, or run `scripts/simulate-agent.sh`.
 
 ### Uninstall
 
-1. In the Settings **연동** (Integrations) tab, click **훅 제거** (Remove hooks) for each config folder. Only entries containing `dotdesk-hook` are removed.
+1. In the Settings **Integrations** tab, click **Remove hooks** for each config folder. Only entries containing `dotdesk-hook` are removed.
 2. Quit the app and delete `DotDesk.app`, `~/.dotdesk` (relay script and token), and `~/Library/Application Support/DotDesk` (settings).
 
 ## How it works
@@ -101,7 +101,7 @@ Auto-approve is close to Claude Code's `--dangerously-skip-permissions`: everyth
 
 - Claude: Reads the email and organization name from `oauthAccount` in `$CLAUDE_CONFIG_DIR/.claude.json` (default `~/.claude.json`).
 - Codex: Reads only the email, plan, and organization name from the ID token in `$CODEX_HOME/auth.json`.
-- Tokens themselves are never stored or sent anywhere. You can set names and flag colors in the **계정** (Accounts) tab in Settings.
+- Tokens themselves are never stored or sent anywhere. You can set names and flag colors in the **Accounts** tab in Settings.
 
 ## Assets and licenses
 

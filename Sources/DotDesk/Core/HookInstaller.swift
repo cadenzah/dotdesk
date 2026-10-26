@@ -86,7 +86,7 @@ enum HookInstaller {
         let data = try Data(contentsOf: url)
         if data.isEmpty { return [:] }
         guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw NSError(domain: "DotDesk", code: 1, userInfo: [NSLocalizedDescriptionKey: "\(url.lastPathComponent)이 JSON 객체가 아니에요"])
+            throw NSError(domain: "DotDesk", code: 1, userInfo: [NSLocalizedDescriptionKey: L("\(url.lastPathComponent)이 JSON 객체가 아니에요", "\(url.lastPathComponent) isn't a JSON object")])
         }
         return obj
     }

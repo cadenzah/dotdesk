@@ -171,7 +171,7 @@ final class DailyStats: ObservableObject {
             dirty = true
             announcement = (d, Date().addingTimeInterval(8))
             if settings.s.alerts.sound { AlertCenter.play("Hero") }
-            store.logToAll("사무실에 \(withSubjectParticle(d.name)) 생겼어요")
+            store.logToAll(L("사무실에 \(withSubjectParticle(d.name)) 생겼어요", "New in the office: \(d.name)"))
         }
     }
 
@@ -189,7 +189,10 @@ final class DailyStats: ObservableObject {
                 today.projectSeconds[s.projectKey, default: 0] += Self.tick
                 today.sessions.insert(s.id)
                 if let w = s.workerId {
-                    today.crew[w] = CrewMember(name: store.nickname(s), character: store.characterRef(s), projectKey: s.projectKey)
+                    // The stored automatic nickname is Korean; the summary translates it when shown.
+                    let worker = store.worker(s)
+                    let name = worker?.name.flatMap { $0.isEmpty ? nil : $0 } ?? worker?.autoNickname ?? store.nickname(s)
+                    today.crew[w] = CrewMember(name: name, character: store.characterRef(s), projectKey: s.projectKey)
                 }
             }
             lastBusyAt = Date()
@@ -253,7 +256,7 @@ private struct StatsFile: Codable {
 /// "3시간 12분", "45분", "30초".
 func formatDuration(_ seconds: Double) -> String {
     let m = Int(seconds) / 60
-    if m >= 60 { return m % 60 == 0 ? "\(m / 60)시간" : "\(m / 60)시간 \(m % 60)분" }
-    if m > 0 { return "\(m)분" }
-    return "\(Int(seconds))초"
+    if m >= 60 { return m % 60 == 0 ? L("\(m / 60)시간", "\(m / 60)h") : L("\(m / 60)시간 \(m % 60)분", "\(m / 60)h \(m % 60)m") }
+    if m > 0 { return L("\(m)분", "\(m) min") }
+    return L("\(Int(seconds))초", "\(Int(seconds)) s")
 }
