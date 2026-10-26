@@ -7,6 +7,9 @@ import CoreGraphics
 /// (sitting with eyes closed).
 enum BuiltinCharacters {
     enum HairStyle { case short, long, bun, spiky, cap }
+    /// The top always carries the project color (`shirt`), so outfits vary in cut, not in color.
+    enum Outfit { case tee, hoodie, shirtTie, jacket, stripes, overalls }
+    enum Bottom { case pants, shorts, skirt }
 
     struct Look {
         let name: String
@@ -15,6 +18,10 @@ enum BuiltinCharacters {
         let style: HairStyle
         let pants: RGBA
         let shoes: RGBA
+        var outfit: Outfit = .tee
+        var bottom: Bottom = .pants
+        /// Tie, inner shirt under a jacket, or the tee under overalls.
+        var accent = RGBA(0xf8f9fa)
     }
 
     enum Frame: Int, CaseIterable {
@@ -23,13 +30,20 @@ enum BuiltinCharacters {
 
     static let looks: [Look] = [
         Look(name: "밤톨머리", skin: RGBA(0xffd9b8), hair: RGBA(0x6b4423), style: .short, pants: RGBA(0x2f3b52), shoes: RGBA(0x3b2f2f)),
-        Look(name: "긴 생머리", skin: RGBA(0xf1c27d), hair: RGBA(0x2b2b35), style: .long, pants: RGBA(0x3d405b), shoes: RGBA(0x2a2a2a)),
-        Look(name: "삐죽 금발", skin: RGBA(0xe0ac69), hair: RGBA(0xe8c15a), style: .spiky, pants: RGBA(0x264653), shoes: RGBA(0x4a3426)),
-        Look(name: "핑크 똥머리", skin: RGBA(0xffe0c4), hair: RGBA(0xf28cb5), style: .bun, pants: RGBA(0x5a4a78), shoes: RGBA(0x3b2f2f)),
-        Look(name: "모자 쓴 친구", skin: RGBA(0xc68642), hair: RGBA(0x1e1e28), style: .cap, pants: RGBA(0x343a40), shoes: RGBA(0xf1f3f5)),
-        Look(name: "주황 머리", skin: RGBA(0xffd9b8), hair: RGBA(0xd9622b), style: .short, pants: RGBA(0x495057), shoes: RGBA(0x2a2a2a)),
-        Look(name: "은발 장발", skin: RGBA(0x8d5524), hair: RGBA(0xdedede), style: .long, pants: RGBA(0x22303c), shoes: RGBA(0x5c3d2e)),
-        Look(name: "파란 삐죽", skin: RGBA(0xf1c27d), hair: RGBA(0x4a6fd1), style: .spiky, pants: RGBA(0x3b3b3b), shoes: RGBA(0xc92a2a)),
+        Look(name: "긴 생머리", skin: RGBA(0xf1c27d), hair: RGBA(0x2b2b35), style: .long, pants: RGBA(0x6d6875), shoes: RGBA(0x2a2a2a),
+             outfit: .stripes, bottom: .skirt),
+        Look(name: "삐죽 금발", skin: RGBA(0xe0ac69), hair: RGBA(0xe8c15a), style: .spiky, pants: RGBA(0x264653), shoes: RGBA(0x4a3426),
+             outfit: .hoodie),
+        Look(name: "핑크 똥머리", skin: RGBA(0xffe0c4), hair: RGBA(0xf28cb5), style: .bun, pants: RGBA(0x5a4a78), shoes: RGBA(0x3b2f2f),
+             outfit: .overalls, accent: RGBA(0xfff4e6)),
+        Look(name: "모자 쓴 친구", skin: RGBA(0xc68642), hair: RGBA(0x1e1e28), style: .cap, pants: RGBA(0x343a40), shoes: RGBA(0xf1f3f5),
+             bottom: .shorts),
+        Look(name: "주황 머리", skin: RGBA(0xffd9b8), hair: RGBA(0xd9622b), style: .short, pants: RGBA(0x495057), shoes: RGBA(0x2a2a2a),
+             outfit: .jacket),
+        Look(name: "은발 장발", skin: RGBA(0x8d5524), hair: RGBA(0xdedede), style: .long, pants: RGBA(0x6c757d), shoes: RGBA(0x5c3d2e),
+             outfit: .jacket, bottom: .skirt, accent: RGBA(0xffec99)),
+        Look(name: "파란 삐죽", skin: RGBA(0xf1c27d), hair: RGBA(0x4a6fd1), style: .spiky, pants: RGBA(0x3b3b3b), shoes: RGBA(0xc92a2a),
+             outfit: .shirtTie, accent: RGBA(0x2b2d42)),
     ]
 
     static func sheet(look index: Int, shirt: RGBA) -> CGImage {
@@ -50,8 +64,11 @@ enum BuiltinCharacters {
         var c = PixelCanvas(16, 32)
         let skin = L.skin
         let hair = L.hair, hairHi = L.hair.lighter(0.25)
-        let sh = shirt, shS = shirt.darker(0.3)
-        let pants = L.pants, shoes = L.shoes
+        let overalls = L.outfit == .overalls
+        // Overalls carry the project color on the bib and legs; the tee underneath takes the accent.
+        let sh = overalls ? L.accent : shirt, shS = sh.darker(0.3)
+        let pants = overalls ? shirt : L.pants, shoes = L.shoes
+        let white = RGBA(0xf8f9fa)
         let eye = RGBA(0x2b2440), blush = RGBA(0xf59ca0), mouth = RGBA(0xb5524a)
         let paper = RGBA(0xfdfdf6), ink = RGBA(0xb8bcc8)
         let side = dir == .right || dir == .left
@@ -79,6 +96,13 @@ enum BuiltinCharacters {
             c.rect(5, 26, 2, 3 - lUp, pants); c.rect(4, 29 - lUp, 3, 2, shoes)
             c.rect(9, 26, 2, 3 - rUp, pants); c.rect(9, 29 - rUp, 3, 2, shoes)
         }
+        if L.bottom != .pants {
+            // Bare knees below the hem.
+            for y in 27..<32 { for x in 0..<16 where c[x, y] == pants { c[x, y] = skin } }
+        }
+        if L.bottom == .skirt && !seated {
+            if side { c.rect(5, 25, 6, 1, pants); c.rect(4, 26, 8, 1, pants) } else { c.rect(4, 25, 8, 1, pants); c.rect(3, 26, 10, 1, pants) }
+        }
 
         // Torso
         if side {
@@ -87,6 +111,7 @@ enum BuiltinCharacters {
             c.rect(4, 19, 8, 6, sh); c.rect(4, 24, 8, 1, shS)
             if dir == .down { c[7, 19] = skin; c[8, 19] = skin }
         }
+        dress(&c, L, shirt: shirt, dir: dir, white: white)
 
         // Arms
         if side {
@@ -194,6 +219,8 @@ enum BuiltinCharacters {
             break
         }
 
+        if L.outfit == .hoodie && dir == .down { c[3, 18] = shS; c[12, 18] = shS }
+
         c.outline()
         if dir == .left {
             var m = PixelCanvas(16, 32)
@@ -201,5 +228,59 @@ enum BuiltinCharacters {
             return m
         }
         return c
+    }
+
+    /// Paints the outfit details over the plain torso.
+    private static func dress(_ c: inout PixelCanvas, _ L: Look, shirt: RGBA, dir: Facing, white: RGBA) {
+        let shS = shirt.darker(0.3), pocket = shirt.darker(0.12)
+        let side = dir == .right || dir == .left
+        switch (L.outfit, dir) {
+        case (.tee, _):
+            break
+        case (.hoodie, .down):
+            c.rect(4, 19, 3, 1, shS); c.rect(9, 19, 3, 1, shS)
+            c.rect(6, 20, 1, 2, white); c.rect(9, 20, 1, 2, white)
+            c.rect(5, 22, 6, 2, pocket)
+        case (.hoodie, .up):
+            c.rect(5, 19, 6, 2, shS)
+        case (.hoodie, _):
+            c.rect(4, 19, 3, 2, shS)
+            c.rect(10, 20, 1, 2, white)
+            c.rect(7, 22, 3, 2, pocket)
+        case (.shirtTie, .down):
+            c[5, 19] = white; c[6, 19] = white; c[9, 19] = white; c[10, 19] = white
+            c[7, 19] = L.accent.darker(0.3); c[8, 19] = L.accent.darker(0.3)
+            c.rect(7, 20, 2, 3, L.accent); c[7, 23] = L.accent
+        case (.shirtTie, .up):
+            c.rect(5, 19, 6, 1, white)
+        case (.shirtTie, _):
+            c.rect(8, 19, 3, 1, white)
+            c.rect(10, 20, 1, 3, L.accent)
+        case (.jacket, .down):
+            c.rect(6, 19, 4, 2, L.accent); c.rect(7, 21, 2, 3, L.accent)
+            c[7, 19] = L.skin; c[8, 19] = L.skin
+            c[6, 22] = shS
+        case (.jacket, .up):
+            c.rect(5, 19, 6, 1, shS)
+            c.rect(7, 22, 2, 3, pocket)
+        case (.jacket, _):
+            c.rect(10, 19, 1, 5, L.accent)
+            c[9, 19] = shS; c[9, 20] = shS
+        case (.stripes, _):
+            let stripe = shirt.lighter(0.5)
+            let x = side ? 5 : 4, w = side ? 6 : 8
+            c.rect(x, 20, w, 1, stripe); c.rect(x, 22, w, 1, stripe)
+        case (.overalls, .down):
+            c.rect(5, 21, 6, 4, shirt); c.rect(4, 24, 8, 1, shirt)
+            c.rect(5, 19, 1, 2, shirt); c.rect(10, 19, 1, 2, shirt)
+            c[5, 21] = shirt.lighter(0.4); c[10, 21] = shirt.lighter(0.4)
+            c.rect(6, 22, 4, 1, shS)
+        case (.overalls, .up):
+            c.rect(5, 19, 1, 4, shirt); c.rect(10, 19, 1, 4, shirt)
+            c.rect(4, 23, 8, 2, shirt)
+        case (.overalls, _):
+            c.rect(5, 23, 6, 2, shirt)
+            c.rect(8, 21, 3, 2, shirt); c.rect(8, 19, 1, 2, shirt)
+        }
     }
 }
