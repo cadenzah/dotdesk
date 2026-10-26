@@ -2,7 +2,7 @@
 # Builds DotDesk.app into ./build (release, ad-hoc signed).
 set -e
 cd "$(dirname "$0")/.."
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-$(cat VERSION)}"
 swift build -c release
 APP=build/DotDesk.app
 rm -rf "$APP"

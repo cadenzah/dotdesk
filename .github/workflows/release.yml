@@ -1,0 +1,57 @@
+# VERSION 파일이 바뀐 채로 main에 올라오면 DotDesk.app을 빌드해서
+# GitHub Release(v<버전>)에 zip으로 올려요. 이미 있는 버전이면 건너뛰어요.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if already released
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "${{ steps.version.outputs.tag }} is already released"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          ./scripts/build-app.sh
+          ditto -c -k --keepParent build/DotDesk.app "build/DotDesk-${{ steps.version.outputs.version }}.zip"
+
+      - name: Publish release
+        if: steps.check.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "build/DotDesk-${{ steps.version.outputs.version }}.zip" \
+            --target "$GITHUB_SHA" \
+            --title "DotDesk ${{ steps.version.outputs.version }}" \
+            --generate-notes \
+            --notes "Apple 공증을 받지 않은 앱이라 처음 열 때 macOS가 실행을 막아요. **시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기**로 한 번 허용하거나, 터미널에서 \`xattr -dr com.apple.quarantine /Applications/DotDesk.app\`을 실행하세요. 자세한 방법은 [처음 실행하기](https://github.com/cadenzah/dotdesk#처음-실행하기)를 보세요."
