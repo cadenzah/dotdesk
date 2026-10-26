@@ -63,8 +63,9 @@ enum DebugRender {
             d.prompts = 10 * back; d.busySeconds = Double([0, 7200, 16000, 0, 9000, 21000, 4000][back]); d.turnsDone = 8
             return d
         }
-        DailyStats.shared.usePreview(today: t, history: history)
+        DailyStats.shared.usePreview(today: t, history: history, unlocked: [.frame, .lights, .lamp, .trophies, .cat])
         renderView(DailySummaryView(), width: 460, to: out.appendingPathComponent("summary.png"))
+        renderView(Form { DecorationList() }.formStyle(.grouped), width: 520, height: 380, to: out.appendingPathComponent("decorations.png"))
     }
 
     /// Welcome window and empty office, before and after the hooks are installed.

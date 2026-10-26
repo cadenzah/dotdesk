@@ -29,6 +29,27 @@ struct DayStats: Codable, Equatable {
     var isEmpty: Bool { prompts == 0 && busySeconds == 0 && turnsDone == 0 }
 }
 
+/// Running totals across every day, for unlocking office decorations.
+struct Totals: Codable, Equatable {
+    var busySeconds: Double = 0
+    var prompts = 0
+    var turnsDone = 0
+    var longTasks = 0
+    var testsPassed = 0
+    var filesEdited = 0
+    var activeDays = 0
+
+    mutating func add(_ d: DayStats) {
+        busySeconds += d.busySeconds
+        prompts += d.prompts
+        turnsDone += d.turnsDone
+        longTasks += d.longTasks
+        testsPassed += d.testsPassed
+        filesEdited += d.files.count
+        if d.busySeconds > 0 { activeDays += 1 }
+    }
+}
+
 struct CrewMember: Codable, Equatable {
     var name: String
     var character: String
@@ -43,6 +64,12 @@ final class DailyStats: ObservableObject {
     @Published private(set) var today: DayStats
     /// Earlier days, oldest first, not including today.
     @Published private(set) var history: [DayStats] = []
+    /// Days older than `history`, folded into totals.
+    private var archived = Totals()
+    /// Decorations earned so far and when.
+    @Published private(set) var unlocked: [String: Date] = [:]
+    /// The decoration just earned, shown for a few seconds.
+    @Published private(set) var announcement: (decoration: Decoration, until: Date)?
     /// Set when the end-of-day summary should open.
     var onSummaryDue: (() -> Void)?
 
@@ -56,10 +83,16 @@ final class DailyStats: ObservableObject {
     static let tick: TimeInterval = 5
 
     private init() {
-        let days = (try? Data(contentsOf: url)).flatMap { try? JSONDecoder.dotdesk.decode([DayStats].self, from: $0) } ?? []
+        let data = try? Data(contentsOf: url)
+        let file = data.flatMap { try? JSONDecoder.dotdesk.decode(StatsFile.self, from: $0) }
+            ?? StatsFile(days: data.flatMap { try? JSONDecoder.dotdesk.decode([DayStats].self, from: $0) } ?? [])
         let key = Self.key(Date())
-        today = days.first { $0.day == key } ?? DayStats(day: key)
-        history = days.filter { $0.day < key }.suffix(30)
+        today = file.days.first { $0.day == key } ?? DayStats(day: key)
+        let older = file.days.filter { $0.day < key }
+        history = Array(older.suffix(30))
+        archived = file.archived
+        for d in older.dropLast(30) { archived.add(d) }
+        unlocked = file.unlocked
     }
 
     func start() {
@@ -117,6 +150,29 @@ final class DailyStats: ObservableObject {
         rollOver()
         change(&today)
         dirty = true
+        checkUnlocks()
+    }
+
+    // MARK: Office growth
+
+    var totals: Totals {
+        var t = archived
+        for d in history { t.add(d) }
+        t.add(today)
+        return t
+    }
+
+    func isUnlocked(_ d: Decoration) -> Bool { unlocked[d.rawValue] != nil }
+
+    private func checkUnlocks() {
+        let t = totals
+        for d in Decoration.allCases where !isUnlocked(d) && d.isMet(t) {
+            unlocked[d.rawValue] = Date()
+            dirty = true
+            announcement = (d, Date().addingTimeInterval(8))
+            if settings.s.alerts.sound { AlertCenter.play("Hero") }
+            store.logToAll("사무실에 \(withSubjectParticle(d.name)) 생겼어요")
+        }
     }
 
     // MARK: Ticking
@@ -138,7 +194,9 @@ final class DailyStats: ObservableObject {
             }
             lastBusyAt = Date()
             dirty = true
+            checkUnlocks()
         }
+        if let a = announcement, Date() > a.until { announcement = nil }
         if dirty, Date().timeIntervalSince(lastSave) > 30 { save() }
         checkSummary()
     }
@@ -146,7 +204,11 @@ final class DailyStats: ObservableObject {
     private func rollOver() {
         let key = Self.key(Date())
         guard today.day != key else { return }
-        if !today.isEmpty { history = Array((history + [today]).suffix(30)) }
+        if !today.isEmpty {
+            let all = history + [today]
+            for d in all.dropLast(30) { archived.add(d) }
+            history = Array(all.suffix(30))
+        }
         today = DayStats(day: key)
         dirty = true
     }
@@ -166,19 +228,26 @@ final class DailyStats: ObservableObject {
     }
 
     /// Shows made-up days instead of the saved ones, without touching stats.json (used by --render-preview).
-    func usePreview(today t: DayStats, history h: [DayStats]) {
+    func usePreview(today t: DayStats, history h: [DayStats], unlocked u: [Decoration] = []) {
         today = t
         history = h
+        unlocked = Dictionary(uniqueKeysWithValues: u.map { ($0.rawValue, Date()) })
     }
 
     func save() {
-        let days = history + (today.isEmpty ? [] : [today])
-        guard let data = try? JSONEncoder.dotdesk.encode(days) else { return }
+        let file = StatsFile(days: history + (today.isEmpty ? [] : [today]), archived: archived, unlocked: unlocked)
+        guard let data = try? JSONEncoder.dotdesk.encode(file) else { return }
         try? FileManager.default.createDirectory(at: Runtime.appSupport, withIntermediateDirectories: true)
         try? data.write(to: url, options: .atomic)
         dirty = false
         lastSave = Date()
     }
+}
+
+private struct StatsFile: Codable {
+    var days: [DayStats]
+    var archived = Totals()
+    var unlocked: [String: Date] = [:]
 }
 
 /// "3시간 12분", "45분", "30초".

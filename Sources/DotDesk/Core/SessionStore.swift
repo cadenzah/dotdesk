@@ -217,6 +217,14 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// Adds a line to every working session's log (office news everyone hears).
+    func logToAll(_ text: String) {
+        // Wait for the hook being handled to store its copy of the session, or this line would be overwritten.
+        DispatchQueue.main.async {
+            for key in self.sessions.keys where self.sessions[key]?.workerId != nil { self.sessions[key]?.addLog(text) }
+        }
+    }
+
     func setUsage(_ key: String, _ usage: ContextUsage) {
         guard let s = sessions[key], s.usage != usage else { return }
         // The first read of a transcript covers work from before DotDesk saw it; only count what comes after.

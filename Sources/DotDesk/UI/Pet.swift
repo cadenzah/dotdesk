@@ -118,7 +118,11 @@ final class PetController: NSObject {
             lastActivityKey = key
             if s != nil, activity != .sleeping { speechUntil = Date().addingTimeInterval(6) }
         }
-        if let s {
+        if let a = DailyStats.shared.announcement {
+            model.title = "사무실에 \(withSubjectParticle(a.decoration.name)) 생겼어요!"
+            model.subtitle = "\(a.decoration.goal) 달성"
+            speechUntil = max(speechUntil, a.until)
+        } else if let s {
             let nick = store.nickname(s)
             model.title = "\(nick) · \(commute?.goal.label ?? shown?.label ?? pastime?.label() ?? activity.label)"
             var parts: [String] = []

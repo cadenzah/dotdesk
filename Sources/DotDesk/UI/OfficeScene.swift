@@ -50,6 +50,19 @@ struct OfficeLayout {
     }
 
     var sofa: CGRect { CGRect(x: lounge.minX + 16, y: lounge.minY + 6, width: 32, height: 16) }
+    /// Free stretches of wall between the door, the windows and the lounge, left to right.
+    var wallGaps: [ClosedRange<CGFloat>] {
+        var edges: [CGFloat] = [OfficeLayout.margin + 23]
+        for w in windows { edges += [w, w + 26] }
+        edges.append(lounge.minX - 4)
+        return stride(from: 0, to: edges.count - 1, by: 2).compactMap { i in
+            edges[i + 1] > edges[i] ? edges[i]...edges[i + 1] : nil
+        }
+    }
+
+    /// Top-left of the floor lamp in the lounge, right of the beanbag.
+    var lamp: CGPoint { CGPoint(x: lounge.minX + 27, y: lounge.minY + 50) }
+
     /// On the lounge wall, right of the clock.
     var whiteboard: CGRect { CGRect(x: lounge.minX + 17, y: 3, width: 44, height: 22) }
     var beanbag: CGRect { CGRect(x: lounge.minX + 4, y: lounge.minY + 60, width: 20, height: 12) }
@@ -133,6 +146,7 @@ struct OfficeLayout {
         let lx = L.lounge.minX, ly = L.lounge.minY
         L.obstacles.append(Obstacle(rect: L.sofa, exitUp: false))
         L.obstacles.append(Obstacle(rect: L.beanbag, exitUp: false))
+        L.obstacles.append(Obstacle(rect: CGRect(x: L.lamp.x, y: L.lamp.y + 17, width: 6, height: 5), exitUp: false))
         L.obstacles.append(Obstacle(rect: CGRect(x: lx + 2, y: ly + 8, width: 12, height: 16), exitUp: false))
         L.obstacles.append(Obstacle(rect: CGRect(x: lx + 46, y: ly + 30, width: 16, height: 14), exitUp: false))
         if L.hasBookshelf {
@@ -540,6 +554,22 @@ final class OfficeSimulation: ObservableObject {
         // Above the coffee machine, where the sofa sitters' bubbles don't cover it.
         OfficeArt.clock(p, L.lounge.minX + 3, 10)
         OfficeArt.whiteboard(p, L.whiteboard, busyByHour: DailyStats.shared.today.busyByHour)
+        let stats = DailyStats.shared
+        let decorate = settings.s.office.showDecorations
+        func has(_ d: Decoration) -> Bool { decorate && stats.isUnlocked(d) }
+        let gaps = L.wallGaps
+        if has(.plaque), let g = gaps.first, g.upperBound - g.lowerBound >= 9 {
+            OfficeArt.plaque(p, ((g.lowerBound + g.upperBound) / 2 - 4).rounded(), 11)
+        }
+        if has(.frame), gaps.count > 1 {
+            OfficeArt.pictureFrame(p, ((gaps[1].lowerBound + gaps[1].upperBound) / 2 - 8).rounded(), 8)
+        }
+        if has(.trophies), gaps.count > 2, gaps[2].upperBound - gaps[2].lowerBound >= 24 {
+            OfficeArt.trophyShelf(p, ((gaps[2].lowerBound + gaps[2].upperBound) / 2 - 11).rounded(), 9,
+                                  count: max(1, Decoration.trophyCount(stats.totals)))
+        }
+        if has(.cat), let wx = L.windows.first { OfficeArt.windowCat(p, wx + 15, 18, tick: tick) }
+        if has(.lights) { OfficeArt.stringLights(p, from: OfficeLayout.margin + 24, to: L.whiteboard.minX - 2, tick: tick) }
 
         for z in L.zones {
             OfficeArt.rug(p, CGRect(x: z.rect.minX, y: z.rect.minY + 22, width: z.rect.width, height: 50),
@@ -568,6 +598,7 @@ final class OfficeSimulation: ObservableObject {
         let sofa = L.sofa, beanbag = L.beanbag
         draws.append((sofa.maxY, { OfficeArt.sofa(p, sofa.minX, sofa.minY) }))
         draws.append((beanbag.maxY, { OfficeArt.beanbag(p, beanbag.minX, beanbag.minY) }))
+        if has(.lamp) { let lp = L.lamp; draws.append((lp.y + 22, { OfficeArt.floorLamp(p, lp.x, lp.y) })) }
         // Someone alone on the sofa lies down; a second sleeper makes them sit up.
         let sofaCount = actors.values.filter { if case .rest(.sofa) = $0.goal { return true }; return false }.count
         draws.append((ly + 24, { OfficeArt.coffee(p, lx + 2, ly + 8) }))

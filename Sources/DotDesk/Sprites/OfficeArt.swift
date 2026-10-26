@@ -159,6 +159,87 @@ enum OfficeArt {
         p.fill(x, y + 1, 1, 1, RGBA(0xffffff))
     }
 
+    // MARK: Decorations earned over time
+
+    /// A framed landscape.
+    static func pictureFrame(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
+        p.fill(x, y, 16, 12, RGBA(0x8b5a2b))
+        p.fill(x + 1, y + 1, 14, 10, RGBA(0xa5d8ff))
+        p.fill(x + 10, y + 2, 3, 3, RGBA(0xffd43b))
+        p.fill(x + 2, y + 7, 5, 4, RGBA(0x40c057)); p.fill(x + 3, y + 6, 3, 1, RGBA(0x40c057))
+        p.fill(x + 6, y + 8, 8, 3, RGBA(0x2f9e44)); p.fill(x + 8, y + 7, 4, 1, RGBA(0x2f9e44))
+    }
+
+    /// A string of bulbs along the top of the wall, twinkling.
+    static func stringLights(_ p: PixelContext, from x0: CGFloat, to x1: CGFloat, tick: Int) {
+        let colors = [RGBA(0xff6b6b), RGBA(0xffd43b), RGBA(0x69db7c), RGBA(0x74c0fc), RGBA(0xda77f2)]
+        var i = 0
+        var x = x0
+        while x < x1 {
+            let sag: CGFloat = [0, 1, 2, 2, 1, 0][Int(x - x0) / 2 % 6]
+            p.fill(x, 1 + sag, 2, 1, RGBA(0x495057))
+            if Int(x - x0) % 6 == 0 {
+                let c = colors[i % colors.count]
+                let dim = (tick / 8 + i) % 4 == 0
+                p.fill(x, 2 + sag, 2, 2, dim ? c.darker(0.4) : c)
+                i += 1
+            }
+            x += 2
+        }
+    }
+
+    /// A floor lamp with a warm shade, glowing at night.
+    static func floorLamp(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
+        let night = skyColor().1
+        if night { p.fill(x - 2, y + 5, 10, 3, RGBA(0xfff3bf).mix(RGBA(0xdee2e6), 0.5)) }
+        p.fill(x, y, 6, 5, night ? RGBA(0xffe066) : RGBA(0xf8f0e3))
+        p.fill(x, y + 4, 6, 1, RGBA(0xe8b04b))
+        p.fill(x + 2, y + 5, 2, 15, RGBA(0x495057))
+        p.fill(x, y + 20, 6, 2, RGBA(0x343a40))
+    }
+
+    /// A wall shelf holding one to three trophies.
+    static func trophyShelf(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, count: Int) {
+        p.fill(x, y + 9, 22, 2, RGBA(0x8b5a2b))
+        p.fill(x + 2, y + 11, 1, 2, RGBA(0x6b3e1f)); p.fill(x + 19, y + 11, 1, 2, RGBA(0x6b3e1f))
+        for i in 0..<count {
+            let tx = x + 2 + CGFloat(i * 7)
+            let gold = [RGBA(0xfab005), RGBA(0xadb5bd), RGBA(0xe8590c)][i]
+            p.fill(tx, y, 5, 3, gold); p.fill(tx - 1, y, 1, 2, gold); p.fill(tx + 5, y, 1, 2, gold)
+            p.fill(tx + 1, y + 3, 3, 2, gold); p.fill(tx + 2, y + 5, 1, 2, gold)
+            p.fill(tx + 1, y + 7, 3, 2, RGBA(0x495057))
+            p.fill(tx + 1, y + 1, 1, 1, gold.lighter(0.5))
+        }
+    }
+
+    /// A cat on the window sill: sitting with a swishing tail by day, curled up asleep at night.
+    static func windowCat(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, tick: Int) {
+        let fur = RGBA(0xf08c00), stripe = RGBA(0xd9480f), dark = Palette.outline
+        if skyColor().1 {
+            p.fill(x, y + 3, 9, 3, fur); p.fill(x + 1, y + 2, 7, 1, fur)
+            p.fill(x + 2, y + 3, 1, 2, stripe); p.fill(x + 5, y + 3, 1, 2, stripe)
+            p.fill(x + 6, y + 1, 3, 2, fur); p.fill(x + 6, y, 1, 1, fur); p.fill(x + 8, y, 1, 1, fur)
+            p.fill(x + 7, y + 2, 1, 1, dark)
+            return
+        }
+        p.fill(x + 2, y + 2, 5, 4, fur)
+        p.fill(x + 3, y + 3, 1, 2, stripe); p.fill(x + 5, y + 3, 1, 2, stripe)
+        p.fill(x + 2, y - 2, 5, 4, fur)
+        p.fill(x + 2, y - 3, 1, 1, fur); p.fill(x + 6, y - 3, 1, 1, fur)
+        p.fill(x + 3, y - 1, 1, 1, dark); p.fill(x + 5, y - 1, 1, 1, dark)
+        let swish = tick / 6 % 4
+        p.fill(x + 7, y + 4, 2, 1, fur)
+        p.fill(x + 8, y + CGFloat([1, 2, 3, 2][swish]), 1, 3, fur)
+    }
+
+    /// A small wooden plaque with a gold plate.
+    static func plaque(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
+        p.fill(x, y, 8, 7, RGBA(0x8b5a2b))
+        p.fill(x + 1, y + 1, 6, 5, RGBA(0xfab005))
+        p.fill(x + 2, y + 2, 4, 1, RGBA(0xe67700)); p.fill(x + 2, y + 4, 3, 1, RGBA(0xe67700))
+        p.fill(x + 1, y + 1, 1, 1, RGBA(0xffec99))
+    }
+
     /// A whiteboard with today's busy time charted hour by hour over the last 12 hours (the label is drawn on top by the view).
     static func whiteboard(_ p: PixelContext, _ r: CGRect, busyByHour: [Double]) {
         p.fill(r.minX, r.minY, r.width, r.height, RGBA(0xadb5bd))

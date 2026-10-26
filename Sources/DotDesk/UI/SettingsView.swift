@@ -78,6 +78,10 @@ struct GeneralTab: View {
                 Toggle("항상 위에 띄우기", isOn: $settings.s.office.alwaysOnTop)
                 Toggle("에이전트가 없으면 자동으로 숨기기", isOn: $settings.s.office.autoHide)
             }
+            Section("사무실 꾸미기") {
+                Toggle("모은 장식 보이기", isOn: $settings.s.office.showDecorations)
+                DecorationList()
+            }
             Section("컨텍스트") {
                 Toggle("컨텍스트 게이지 보이기", isOn: $settings.s.showContextGauge)
                 Picker("Claude 컨텍스트 크기", selection: $settings.s.contextWindow) {
@@ -601,5 +605,35 @@ struct HookRow: View {
             if let remove { Button(role: .destructive) { remove() } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless) }
         }
         .id(refresh)
+    }
+}
+
+/// Each office decoration with how close it is to being earned.
+struct DecorationList: View {
+    @ObservedObject private var stats = DailyStats.shared
+
+    var body: some View {
+        let t = stats.totals
+        ForEach(Decoration.allCases) { d in
+            let got = stats.isUnlocked(d)
+            let (cur, target) = d.progress(t)
+            HStack(spacing: 8) {
+                Image(systemName: got ? "checkmark.seal.fill" : "lock.fill")
+                    .foregroundStyle(got ? Color.green : Color.secondary)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(d.name).foregroundStyle(got ? .primary : .secondary)
+                    Text(d.goal).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if got, let date = stats.unlocked[d.rawValue] {
+                    Text(date, format: .dateTime.month().day()).font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ProgressView(value: min(cur, target), total: target).frame(width: 70)
+                    Text("\(Int(cur))/\(Int(target))").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        .frame(width: 52, alignment: .trailing)
+                }
+            }
+        }
     }
 }

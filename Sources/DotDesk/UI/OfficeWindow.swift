@@ -73,6 +73,7 @@ struct OfficeView: View {
     @ObservedObject private var store = SessionStore.shared
     @ObservedObject private var settings = SettingsStore.shared
     @ObservedObject private var integration = IntegrationStatus.shared
+    @ObservedObject private var stats = DailyStats.shared
     @State private var selected: String?
 
     var body: some View {
@@ -155,6 +156,17 @@ struct OfficeView: View {
                     .padding(10)
                     .background(RoundedRectangle(cornerRadius: 8).fill(.regularMaterial))
                     .frame(width: geo.size.width, height: geo.size.height)
+                }
+                if let a = stats.announcement {
+                    Label("사무실에 \(withSubjectParticle(a.decoration.name)) 생겼어요", systemImage: "sparkles")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Capsule().fill(.regularMaterial))
+                        .overlay(Capsule().stroke(Color.yellow.opacity(0.8), lineWidth: 1.5))
+                        .padding(.top, 8)
+                        .frame(width: geo.size.width)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .allowsHitTesting(false)
                 }
                 if !store.permissions.isEmpty {
                     VStack(spacing: 6) {

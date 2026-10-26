@@ -35,6 +35,7 @@ struct OfficeSettings: Codable {
     var autoHide = false
     var frame: [Double]?
     var usePixelAgentsFurniture = true
+    var showDecorations = true
 }
 
 struct PermissionSettings: Codable {
