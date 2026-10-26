@@ -257,7 +257,9 @@ final class PetController: NSObject {
             m.addItem(withTitle: "\(store.nickname(s)) · \(settings.projectName(s.projectKey))", action: nil, keyEquivalent: "").isEnabled = false
             m.addItem(.separator())
             m.addItem(MenuAction("이 세션 자동 허용", checked: s.autoAllowThisSession) { [store] in
-                store.setAutoAllow(s.id, !s.autoAllowThisSession)
+                let on = !s.autoAllowThisSession
+                if on, !AutoAllowWarning.confirm("이 세션") { return }
+                store.setAutoAllow(s.id, on)
             })
             m.addItem(MenuAction("캐릭터·이름 바꾸기…") { AppDelegate.shared?.editSession(s.id) })
         }
@@ -487,7 +489,9 @@ struct PermissionCard: View {
                 Button("허용") { store.resolve(p, .allow) }
                     .keyboardShortcut(.defaultAction)
                 Button("거부") { store.resolve(p, .deny(nil)) }
-                Button("세션 동안 허용") { store.resolve(p, .allow, allowSession: true) }
+                Button("이 세션 자동 허용") {
+                    if AutoAllowWarning.confirm("이 세션") { store.resolve(p, .allow, allowSession: true) }
+                }
                 Spacer(minLength: 0)
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
                     Text("\(max(0, Int(p.deadline.timeIntervalSince(ctx.date))))s")

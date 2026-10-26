@@ -256,7 +256,11 @@ struct ProjectRow: View {
             }
             .fixedSize()
         }
-        Picker("권한 요청", selection: Binding(get: { binding.wrappedValue.permissionMode }, set: { binding.wrappedValue.permissionMode = $0 })) {
+        Picker("권한 요청", selection: Binding(get: { binding.wrappedValue.permissionMode }, set: { mode in
+            if mode == .autoAllow, binding.wrappedValue.permissionMode != .autoAllow,
+               !AutoAllowWarning.confirm("‘\(settings.projectName(key))’ 프로젝트") { return }
+            binding.wrappedValue.permissionMode = mode
+        })) {
             Text("전체 설정 따르기 (\(settings.s.permissions.mode.label))").tag(PermissionMode?.none)
             ForEach(PermissionMode.allCases) { Text($0.label).tag(PermissionMode?.some($0)) }
         }
@@ -308,13 +312,38 @@ struct AccountsTab: View {
 
 // MARK: Permissions
 
+/// Auto-allow approves everything without asking, so every way of turning it on goes through this confirmation.
+@MainActor
+enum AutoAllowWarning {
+    static let risks = "파일 수정·삭제, 셸 명령, 네트워크 요청, MCP 도구가 모두 묻지 않고 실행돼요. 에이전트가 웹페이지나 파일에 숨은 지시(프롬프트 인젝션)를 따르면 프로젝트 밖의 파일이나 셸·Claude Code 설정까지 바뀔 수 있어요."
+    static let exceptionsCaveat = "위험 명령 예외는 셸 명령에 적어 둔 글자가 그대로 들어 있을 때만 물어보는 편의 기능이에요. ‘rm -r -f’처럼 다르게 쓴 명령이나 파일 쓰기 같은 셸이 아닌 도구는 잡지 못하니 안전장치로 믿지 마세요."
+    static let advice = "믿을 수 있는 프로젝트나 격리된 환경에서만 쓰고, 꼭 막아야 할 작업은 Claude Code의 deny 규칙으로 막으세요. deny 규칙은 자동 허용이어도 지켜져요."
+
+    /// Returns true when the user confirms. `scope` names what gets auto-allowed, e.g. "모든 프로젝트".
+    static func confirm(_ scope: String) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = "\(scope)에서 자동 허용을 켤까요?"
+        alert.informativeText = [risks, exceptionsCaveat, advice].joined(separator: "\n\n")
+        alert.addButton(withTitle: "취소")
+        let on = alert.addButton(withTitle: "자동 허용 켜기")
+        on.hasDestructiveAction = true
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+}
+
 struct PermissionsTab: View {
     @ObservedObject private var settings = SettingsStore.shared
 
     var body: some View {
         Form {
             Section {
-                Picker("권한 요청 처리", selection: $settings.s.permissions.mode) {
+                Picker("권한 요청 처리", selection: Binding(get: { settings.s.permissions.mode }, set: { mode in
+                    if mode == .autoAllow, settings.s.permissions.mode != .autoAllow,
+                       !AutoAllowWarning.confirm("모든 프로젝트") { return }
+                    settings.s.permissions.mode = mode
+                })) {
                     ForEach(PermissionMode.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.radioGroup)
@@ -326,8 +355,9 @@ struct PermissionsTab: View {
                     Text("펫 위에 허용/거부 카드가 떠요. 시간 안에 답하지 않으면 원래대로 에이전트 창에서 물어봐요.")
                         .font(.caption).foregroundStyle(.secondary)
                 case .autoAllow:
-                    Text("모든 권한 요청을 묻지 않고 허용해요. 파일 삭제나 배포 같은 위험한 작업도 그냥 실행될 수 있어요. Claude Code의 deny 규칙은 그래도 지켜져요.")
+                    Label("모든 권한 요청을 묻지 않고 허용해요. \(AutoAllowWarning.risks)", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(.red)
+                    Text(AutoAllowWarning.advice).font(.caption).foregroundStyle(.secondary)
                 }
             }
             if settings.s.permissions.mode != .passthrough {
@@ -342,7 +372,8 @@ struct PermissionsTab: View {
                                          set: { settings.s.permissions.dangerousPatterns = $0.components(separatedBy: "\n") }))
                     .font(.system(size: 11, design: .monospaced))
                     .frame(height: 110)
-                Text("한 줄에 하나씩, 명령에 이 글자가 들어 있으면 물어봐요.").font(.caption).foregroundStyle(.secondary)
+                Text("한 줄에 하나씩, 셸 명령에 이 글자가 그대로 들어 있으면 물어봐요.").font(.caption).foregroundStyle(.secondary)
+                Text(AutoAllowWarning.exceptionsCaveat).font(.caption).foregroundStyle(.orange)
             }
             Section {
                 Text("프로젝트마다 다르게 하려면 프로젝트 탭에서 바꾸세요. 펫·사무실 메뉴에서 세션 하나만 자동 허용으로 바꿀 수도 있어요.")

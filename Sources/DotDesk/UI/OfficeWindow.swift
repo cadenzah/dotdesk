@@ -185,7 +185,10 @@ struct SessionMenu: View {
         } else {
             Button("펫 집어넣기") { PetManager.shared.putBack(s.id) }
         }
-        Toggle("이 세션 자동 허용", isOn: Binding(get: { s.autoAllowThisSession }, set: { store.setAutoAllow(s.id, $0) }))
+        Toggle("이 세션 자동 허용", isOn: Binding(get: { s.autoAllowThisSession }, set: { on in
+            if on, !AutoAllowWarning.confirm("이 세션") { return }
+            store.setAutoAllow(s.id, on)
+        }))
         Divider()
         Button("프로젝트 설정…") { AppDelegate.shared?.showSettings(tab: .projects) }
     }

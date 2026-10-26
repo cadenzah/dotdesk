@@ -6,7 +6,7 @@ A macOS app that shows the AI coding agents working on your Mac (Claude Code, Co
 
 - **Desktop pet** — Active agents wander along the bottom of your screen, then stop to type or read documents when they start working. A speech-bubble icon shows what they're doing right now (reading, searching, writing, running commands, browsing the web, calling teammates, planning…). While resting, they take turns napping, sipping coffee, gaming, reading and stretching.
 - **Office window** — In a small window in the corner of your screen, agents sit and work in areas grouped by project. Their monitors change with what they're doing, and subagents appear as teammates in front of the desk. After a while of inactivity, they take a break and pick something at random — a nap on the sofa, reading on the beanbag, coffee, watering the plant, gazing out the window, chatting in pairs by a window, stretching — and switch to something else after a bit. When a new session starts in the same project, a character whose session ended or is resting takes it on (so `/clear` keeps the same face). If the session they left gets busy again, a free colleague or a new character steps in.
-- **Answer permission requests** — Allow or deny from the pet's speech bubble without switching to the agent's window, or auto-approve (bypass). Even with auto-approve on, DotDesk can still ask you about dangerous commands like `rm -rf`.
+- **Answer permission requests** — Allow or deny from the pet's speech bubble without switching to the agent's window, or auto-approve (bypass). Auto-approve turns off permission checks entirely, so read [the caveats](#before-turning-on-auto-approve) first.
 - **Multiple accounts and organizations** — Reads the signed-in account for each `CLAUDE_CONFIG_DIR`/`CODEX_HOME` and tells them apart with desk flag colors and name tags.
 - **Pick your characters** — Each new agent gets a random mix of hair and outfit. Or choose per agent or per project from 8 built-in pixel presets, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) characters, or the Pokémon collected by [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).
 
@@ -77,9 +77,18 @@ Codex session logs (~/.codex/sessions/**/rollout-*.jsonl) ───────t
 |---|---|
 | Answer in the agent's window (default) | Approve in the terminal/app as usual. The pet just raises its hand and waits |
 | Answer from the pet's speech bubble | An allow/deny card appears on the pet and in the office. If there's no answer in time, it falls back to the normal flow |
-| Auto-approve (bypass) | Allows without asking. Dangerous patterns (editable in Settings) are confirmed via speech bubble |
+| Auto-approve (bypass) | Allows without asking. Only shell commands containing a dangerous pattern (editable in Settings) are confirmed via speech bubble |
 
-Besides the global setting, you can use a different mode per project, or switch a single session to "auto-approve this session". Claude Code's `deny` rules are still enforced even with auto-approve on.
+Besides the global setting, you can use a different mode per project, or switch a single session to "auto-approve this session". Either way, DotDesk asks you to confirm once when you turn it on.
+
+#### Before turning on auto-approve
+
+Auto-approve is close to Claude Code's `--dangerously-skip-permissions`: everything that would have prompted you runs right away.
+
+- File edits and deletions, shell commands, network requests, and MCP tools are all allowed without asking, including files outside the project (`~/.zshrc`, `.git/hooks`, `~/.claude/settings.json`, …).
+- If the agent follows instructions hidden in a web page, issue, or file (prompt injection), those run without confirmation too.
+- **Dangerous patterns are not a safety boundary.** They only ask when a shell command contains the exact text you listed, so variants like `rm -r -f` or `find . -delete`, and non-shell tools such as file writes, slip through.
+- Use it only in projects you trust or in an isolated environment such as a container or VM. Block what must never happen with Claude Code's `permissions.deny` rules, which are still enforced with auto-approve on.
 
 ### Account detection
 
