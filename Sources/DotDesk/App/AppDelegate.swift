@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setUpStatusItem()
         office = OfficeWindowController()
         _ = PetManager.shared
+        AlertCenter.shared.start()
         codexWatcher.start()
 
         // Show/hide the office as settings and the set of sessions change.
@@ -180,6 +181,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         permItem.submenu = permMenu
         menu.addItem(permItem)
+        menu.addItem(MenuAction("알림 소리", checked: settings.s.alerts.sound) { [settings] in
+            settings.s.alerts.sound.toggle()
+        })
         menu.addItem(.separator())
         menu.addItem(MenuAction("데모 에이전트", checked: store.demoRunning) { [store] in store.toggleDemo() })
         menu.addItem(MenuAction("설정…") { [weak self] in self?.showSettings(tab: nil) })

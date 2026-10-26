@@ -3,7 +3,7 @@ import ServiceManagement
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, characters, projects, accounts, permissions, integrations
+    case general, characters, projects, accounts, alerts, permissions, integrations
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -11,6 +11,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .characters: return "캐릭터"
         case .projects: return "프로젝트"
         case .accounts: return "계정"
+        case .alerts: return "알림"
         case .permissions: return "권한"
         case .integrations: return "연동"
         }
@@ -21,6 +22,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .characters: return "person.crop.square"
         case .projects: return "folder"
         case .accounts: return "person.2"
+        case .alerts: return "bell"
         case .permissions: return "hand.raised"
         case .integrations: return "link"
         }
@@ -42,6 +44,7 @@ struct SettingsView: View {
             CharactersTab().tabItem { Label("캐릭터", systemImage: "person.crop.square") }.tag(SettingsTab.characters)
             ProjectsTab().tabItem { Label("프로젝트", systemImage: "folder") }.tag(SettingsTab.projects)
             AccountsTab().tabItem { Label("계정", systemImage: "person.2") }.tag(SettingsTab.accounts)
+            AlertsTab().tabItem { Label("알림", systemImage: "bell") }.tag(SettingsTab.alerts)
             PermissionsTab().tabItem { Label("권한", systemImage: "hand.raised") }.tag(SettingsTab.permissions)
             IntegrationsTab().tabItem { Label("연동", systemImage: "link") }.tag(SettingsTab.integrations)
         }
@@ -330,6 +333,86 @@ enum AutoAllowWarning {
         on.hasDestructiveAction = true
         NSApp.activate(ignoringOtherApps: true)
         return alert.runModal() == .alertSecondButtonReturn
+    }
+}
+
+// MARK: Alerts
+
+struct AlertsTab: View {
+    @ObservedObject private var settings = SettingsStore.shared
+    @ObservedObject private var alerts = AlertCenter.shared
+
+    var body: some View {
+        Form {
+            Section("언제 알릴까요") {
+                AlertRow(title: "허락을 기다릴 때", isOn: $settings.s.alerts.onPermission, sound: $settings.s.alerts.permissionSound)
+                AlertRow(title: "질문이 있을 때", isOn: $settings.s.alerts.onQuestion, sound: $settings.s.alerts.questionSound)
+                AlertRow(title: "오래 걸린 일을 마쳤을 때", isOn: $settings.s.alerts.onDone, sound: $settings.s.alerts.doneSound)
+                Stepper("\(Int(settings.s.alerts.doneAfterSeconds))초 넘게 일했을 때만 완료 알림",
+                        value: $settings.s.alerts.doneAfterSeconds, in: 0...600, step: 10)
+                    .disabled(!settings.s.alerts.onDone)
+            }
+            Section("어떻게 알릴까요") {
+                Toggle("소리 내기", isOn: $settings.s.alerts.sound)
+                Toggle("macOS 알림 띄우기", isOn: Binding(get: { settings.s.alerts.notify }, set: { on in
+                    settings.s.alerts.notify = on
+                    if on, alerts.notificationStatus == .notDetermined { alerts.requestAuthorization() }
+                }))
+                if settings.s.alerts.notify {
+                    switch alerts.notificationStatus {
+                    case .denied:
+                        HStack {
+                            Text("시스템 설정에서 DotDesk 알림이 꺼져 있어요").font(.caption).foregroundStyle(.orange)
+                            Spacer()
+                            Button("알림 설정 열기") { AlertCenter.openNotificationSettings() }
+                        }
+                    case .notDetermined:
+                        Button("알림 허용하기") { alerts.requestAuthorization() }
+                    default:
+                        Text("알림을 누르면 그 에이전트의 창으로 가요. 펫 말풍선 응답 모드에서는 알림에서 바로 허용·거부할 수 있어요.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Toggle("에이전트 창을 보고 있을 때는 조용히", isOn: $settings.s.alerts.skipWhenWatching)
+            }
+            Section("오래 기다리면") {
+                Toggle("펫이 화면 가운데로 와서 손을 흔들고 한 번 더 알리기", isOn: Binding(
+                    get: { settings.s.alerts.callAfterSeconds > 0 },
+                    set: { settings.s.alerts.callAfterSeconds = $0 ? 60 : 0 }))
+                if settings.s.alerts.callAfterSeconds > 0 {
+                    Stepper("\(Int(settings.s.alerts.callAfterSeconds))초 동안 답이 없으면",
+                            value: $settings.s.alerts.callAfterSeconds, in: 15...600, step: 15)
+                }
+                Text("펫이 제자리에 고정되어 있으면 그 자리에서 손을 흔들어요. 메뉴바에서 알림 소리를 바로 끌 수 있어요.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { alerts.refreshStatus() }
+    }
+}
+
+struct AlertRow: View {
+    let title: String
+    @Binding var isOn: Bool
+    @Binding var sound: String
+
+    var body: some View {
+        HStack {
+            Toggle(title, isOn: $isOn)
+            Spacer()
+            Picker("소리", selection: $sound) {
+                Text("소리 없음").tag("")
+                ForEach(AlertCenter.sounds, id: \.self) { Text($0).tag($0) }
+            }
+            .labelsHidden()
+            .frame(width: 120)
+            .onChange(of: sound) { _, name in if !name.isEmpty { AlertCenter.play(name) } }
+            Button { AlertCenter.play(sound) } label: { Image(systemName: "speaker.wave.2") }
+                .buttonStyle(.borderless)
+                .disabled(sound.isEmpty)
+                .help("들어 보기")
+        }
     }
 }
 

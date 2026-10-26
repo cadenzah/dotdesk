@@ -48,6 +48,24 @@ struct PermissionSettings: Codable {
     ]
 }
 
+/// Sounds and macOS notifications for moments the agent needs you or finished a long task.
+struct AlertSettings: Codable {
+    var sound = true
+    var notify = false
+    var onPermission = true
+    var onQuestion = true
+    var onDone = true
+    var permissionSound = "Glass"
+    var questionSound = "Purr"
+    var doneSound = "Hero"
+    /// Only turns that took at least this long count as "done".
+    var doneAfterSeconds: Double = 30
+    /// Stay quiet while the agent's app is the frontmost one.
+    var skipWhenWatching = true
+    /// After waiting this long the pet walks to the middle of the screen, waves and the sound plays again. 0 is off.
+    var callAfterSeconds: Double = 60
+}
+
 struct ProjectSettings: Codable, Equatable {
     var name: String?
     var colorHex: String?
@@ -76,6 +94,7 @@ struct AppSettings: Codable {
     var pet = PetSettings()
     var office = OfficeSettings()
     var permissions = PermissionSettings()
+    var alerts = AlertSettings()
     var projects: [String: ProjectSettings] = [:]
     var accounts: [String: AccountSettings] = [:]
     var sessions: [String: SessionOverride] = [:]

@@ -134,7 +134,24 @@ final class PetController: NSObject {
         // Movement
         let busy = activity.isWorking || activity.needsUser || activity == .sleeping || activity == .done
         let screen = (panel.screen ?? NSScreen.main)?.visibleFrame ?? .zero
-        if settings.s.pet.mode == .roam, !dragging, !busy, !model.hovering {
+        // Waited too long: come to the middle of the screen (when roaming) and wave.
+        let calling = s.map(AlertCenter.shared.isCalling) ?? false
+        var waving = false
+        if calling, settings.s.pet.mode == .roam, !dragging, !model.hovering {
+            let target = screen.midX - Self.windowSize.width / 2
+            if abs(target - x) > 3 {
+                walking = true
+                dir = target > x ? 1 : -1
+                x += dir * min(3, abs(target - x))
+                panel.setFrameOrigin(CGPoint(x: x, y: baseline))
+            } else {
+                walking = false
+                waving = true
+            }
+        } else if calling {
+            walking = false
+            waving = true
+        } else if settings.s.pet.mode == .roam, !dragging, !busy, !model.hovering {
             if Date() < pauseUntil {
                 walking = false
             } else {
@@ -164,6 +181,16 @@ final class PetController: NSObject {
             pose = p
             if let f { facing = f }
         }
+        if waving {
+            // Arms up and down, or a little side-to-side turn for sprites without a cheer frame.
+            let phase = (tick / 6) % 4
+            if skin.hasCheerFrame {
+                pose = phase % 2 == 0 ? .stand : .cheer
+            } else {
+                pose = .stand
+                facing = [Facing.down, .left, .down, .right][phase]
+            }
+        }
         if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
         let (img, flip) = skin.frame(facing: facing, pose: pose, tick: tick / 2)
         let icon = commute == nil ? pastime?.icon ?? activity.icon : nil
@@ -171,6 +198,7 @@ final class PetController: NSObject {
         var bounce: CGFloat = 0
         if activity == .done { bounce = (tick / 3) % 4 < 2 ? -3 : 0 }
         if activity.needsUser { bounce = (tick / 4) % 6 == 0 ? -2 : 0 }
+        if waving { bounce = (tick / 6) % 2 == 0 ? 0 : -2 }
         if !skin.isSheet, activity.isWorking { bounce += (tick / 2) % 2 == 0 ? -1 : 0 }
         if commute != nil { bounce = 0 }
 
