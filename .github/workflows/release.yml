@@ -1,5 +1,7 @@
 # VERSION 파일이 바뀐 채로 main에 올라오면 DotDesk.app을 빌드해서
 # GitHub Release(v<버전>)에 zip으로 올려요. 이미 있는 버전이면 건너뛰어요.
+# 릴리스 노트는 scripts/release-notes.sh가 이전 릴리스 이후 커밋 접두어로 만들어요.
+# 이미 있는 버전에서 손으로 실행(workflow_dispatch)하면 노트만 다시 만들어 고쳐요.
 name: Release
 
 on:
@@ -20,6 +22,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 이전 릴리스 태그부터의 커밋으로 노트를 만들려면 전체 기록과 태그가 필요해요.
+          fetch-depth: 0
 
       - name: Read version
         id: version
@@ -38,6 +43,15 @@ jobs:
             echo "exists=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Update notes of existing release
+        if: steps.check.outputs.exists == 'true' && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --tags --force origin
+          ./scripts/release-notes.sh "${{ steps.version.outputs.version }}" "${{ steps.version.outputs.tag }}" > notes.md
+          gh release edit "${{ steps.version.outputs.tag }}" --notes-file notes.md
+
       - name: Build
         if: steps.check.outputs.exists != 'true'
         run: |
@@ -49,9 +63,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          ./scripts/release-notes.sh "${{ steps.version.outputs.version }}" "$GITHUB_SHA" > notes.md
           gh release create "${{ steps.version.outputs.tag }}" \
             "build/DotDesk-${{ steps.version.outputs.version }}.zip" \
             --target "$GITHUB_SHA" \
             --title "DotDesk ${{ steps.version.outputs.version }}" \
-            --generate-notes \
-            --notes "Apple 공증을 받지 않은 앱이라 처음 열 때 macOS가 실행을 막아요. **시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기**로 한 번 허용하거나, 터미널에서 \`xattr -dr com.apple.quarantine /Applications/DotDesk.app\`을 실행하세요. 자세한 방법은 [처음 실행하기](https://github.com/cadenzah/dotdesk/blob/main/README.ko.md#처음-실행하기)를 보세요."
+            --notes-file notes.md

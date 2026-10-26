@@ -5,6 +5,9 @@
 - `<접두어>: <한국어 설명>` 형식으로, 설명은 "~함"으로 끝내요. 예: `fix: 말풍선이 캐릭터 바운스를 따라 흔들리지 않게 함`
 - 접두어는 `feat`(기능 추가·변경), `fix`(버그 수정), `perf`(성능), `docs`, `chore`, `refactor` 중에서 골라요. 버전 계산이 이 접두어에 기대므로 반드시 붙여요.
 - 호환이 깨지는 변경은 `feat!:`처럼 `!`를 붙이거나 본문에 `BREAKING CHANGE:`를 써요.
+- `feat`·`fix`·`perf` 커밋에는 본문에 `Release-Note: <영어 한 줄>`을 써요. 릴리스 노트(`scripts/release-notes.sh`)가 이 줄을 항목으로 쓰고, 없으면 한국어 제목이 그대로 들어가요.
+  - 앱을 쓰는 사람 입장에서 무엇이 달라졌는지를 써요. 예: `Release-Note: Speech bubbles no longer bob up and down with the character's bounce`
+- 빌드·릴리스 스크립트, CLAUDE.md처럼 앱 사용자와 상관없는 변경은 `feat`가 아니라 `chore`로 써요. `chore`는 릴리스 노트에 실리지 않아요.
 
 ## 버전과 릴리스
 
