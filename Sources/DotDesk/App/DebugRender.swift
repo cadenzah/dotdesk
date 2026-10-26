@@ -72,7 +72,7 @@ enum DebugRender {
     private static func renderOffice(to out: URL) {
         let store = SessionStore.shared
         store.toggleDemo()
-        let sim = OfficeSimulation(seed: 7)
+        let sim = OfficeSimulation(planner: RestPlanner(seed: 7))
         for k in 0..<4 {
             store.demoStep()
             sim.advance(160)
@@ -163,16 +163,29 @@ enum DebugRender {
         store.demoRemove("demo-6")
     }
 
-    /// The desktop pet while its agent rests, several times over so the random pastimes show up.
+    /// The desktop pet while its agent rests, once per pastime the office can give it.
     private static func renderPetRests(to out: URL) {
         SessionStore.shared.demoSleep(["claude:demo-1"])
-        for i in 0..<8 {
+        let rests: [(OfficeLayout.RestSpot, OfficeSimulation.Pastime)] = [
+            (.sofa(0), .nap), (.sofa(0), .game), (.beanbag, .read), (.coffee, .coffee),
+            (.plant, .water), (.window(0), .gaze), (.stretch, .stretch), (.bookshelf, .browse),
+        ]
+        for (i, (spot, pastime)) in rests.enumerated() {
+            RestPlanner.shared.debugRest("claude:demo-1", spot, pastime)
             let pet = PetController(pinnedSession: "claude:demo-1")
             pet.show()
             pet.close()
             print("pet-rest-\(i):", pet.model.title)
             if let f = pet.model.frame { write(f, scale: 6, to: out.appendingPathComponent("pet-rest-\(i).png")) }
         }
+        // On the way to the sofa in the office.
+        RestPlanner.shared.walking["claude:demo-1"] = (.rest(.sofa(0)), .right)
+        let pet = PetController(pinnedSession: "claude:demo-1")
+        pet.show()
+        pet.close()
+        RestPlanner.shared.walking = [:]
+        print("pet-walk:", pet.model.title)
+        if let f = pet.model.frame { write(f, scale: 6, to: out.appendingPathComponent("pet-walk.png")) }
     }
 
     /// 1024px app icon: the default character in front of a monitor.

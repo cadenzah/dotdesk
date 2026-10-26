@@ -31,13 +31,10 @@ final class PetController: NSObject {
     private var dragging = false
     private var lastActivityKey = ""
     private var speechUntil = Date.distantPast
-    /// What the pet does while its agent rests, and until when.
-    private var restPlan: (pastime: OfficeSimulation.Pastime, until: Date)?
-    /// The pet has no furniture, so only pastimes that need none.
-    private static let pastimes: [OfficeSimulation.Pastime] = [.nap, .coffee, .game, .read, .stretch]
     private let store = SessionStore.shared
     private let settings = SettingsStore.shared
     private let sprites = SpriteLibrary.shared
+    private let planner = RestPlanner.shared
     var onClose: (() -> Void)?
 
     static let windowSize = CGSize(width: 280, height: 320)
@@ -108,15 +105,9 @@ final class PetController: NSObject {
         }
         let activity = s?.activity ?? .sleeping
         model.sessionKey = s?.id
-        if activity == .sleeping, s != nil {
-            if restPlan.map({ Date() >= $0.until }) ?? true {
-                let next = Self.pastimes.filter { $0 != restPlan?.pastime }.randomElement() ?? .nap
-                restPlan = (next, Date().addingTimeInterval(next == .nap ? .random(in: 60...150) : .random(in: 20...50)))
-            }
-        } else {
-            restPlan = nil
-        }
-        let pastime = restPlan?.pastime
+        // Same as the character in the office: walking somewhere, or the pastime minus the furniture.
+        let commute = s.flatMap { planner.walking[$0.id] }
+        let pastime = activity == .sleeping && commute == nil ? s.flatMap { planner.rest(for: $0.id)?.pastime } : nil
         model.permissions = store.permissions.filter { $0.sessionKey == s?.id }
 
         // Speech bubble: show briefly after each change, and keep it while the agent needs the user.
@@ -127,7 +118,7 @@ final class PetController: NSObject {
         }
         if let s {
             let nick = store.nickname(s)
-            model.title = "\(nick) · \(pastime?.label() ?? activity.label)"
+            model.title = "\(nick) · \(commute?.goal.label ?? pastime?.label() ?? activity.label)"
             var parts: [String] = []
             if !s.detail.isEmpty { parts.append(s.detail) }
             parts.append(settings.projectName(s.projectKey))
@@ -167,20 +158,21 @@ final class PetController: NSObject {
         let ref = s.map(store.characterRef) ?? "builtin:0"
         let shirt = s.map { settings.projectColor($0.projectKey) } ?? RGBA(0x868e96)
         let skin = sprites.skin(for: ref, shirt: shirt)
-        var pose: Pose = walking ? .walk : activity.pose
-        var facing: Facing = walking ? (dir > 0 ? .right : .left) : .down
+        var pose: Pose = walking || commute != nil ? .walk : activity.pose
+        var facing: Facing = walking ? (dir > 0 ? .right : .left) : commute?.facing ?? .down
         if !walking, let (p, f) = pastime?.pose(skin, tick: tick / 2) {
             pose = p
             if let f { facing = f }
         }
         if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
         let (img, flip) = skin.frame(facing: facing, pose: pose, tick: tick / 2)
-        let icon = pastime?.icon ?? activity.icon
+        let icon = commute == nil ? pastime?.icon ?? activity.icon : nil
 
         var bounce: CGFloat = 0
         if activity == .done { bounce = (tick / 3) % 4 < 2 ? -3 : 0 }
         if activity.needsUser { bounce = (tick / 4) % 6 == 0 ? -2 : 0 }
         if !skin.isSheet, activity.isWorking { bounce += (tick / 2) % 2 == 0 ? -1 : 0 }
+        if commute != nil { bounce = 0 }
 
         let scale = CGFloat(settings.s.pet.scale)
         if skin.isSheet {

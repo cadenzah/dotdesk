@@ -280,7 +280,25 @@ private struct MinHeap {
 /// Moves characters around the office and renders frames at ~12 fps while the office is visible.
 @MainActor
 final class OfficeSimulation: ObservableObject {
-    enum Goal: Equatable { case seat, rest(OfficeLayout.RestSpot), door, helper(Int) }
+    enum Goal: Equatable {
+        case seat, rest(OfficeLayout.RestSpot), door, helper(Int)
+
+        /// Shown instead of the session's activity while walking there.
+        var label: String {
+            switch self {
+            case .seat, .rest(.desk): return "자리로 가는 중"
+            case .rest(.sofa): return "소파로 가는 중"
+            case .rest(.beanbag): return "빈백으로 가는 중"
+            case .rest(.coffee): return "커피 머신으로 가는 중"
+            case .rest(.plant): return "화분으로 가는 중"
+            case .rest(.window), .rest(.chat): return "창가로 가는 중"
+            case .rest(.stretch): return "휴게실로 가는 중"
+            case .rest(.bookshelf): return "책장으로 가는 중"
+            case .door: return "퇴근하는 중"
+            case .helper: return "도우러 가는 중"
+            }
+        }
+    }
 
     /// What a resting agent does at their spot; decides the pose, what they hold, the bubble and the tooltip.
     enum Pastime {
@@ -348,13 +366,6 @@ final class OfficeSimulation: ObservableObject {
         }
     }
 
-    struct Rest {
-        let spot: OfficeLayout.RestSpot
-        let pastime: Pastime
-        /// Tick at which the agent gets up and picks something else.
-        let until: Int
-    }
-
     /// A worker walking around (keyed by worker, so they keep their place when they take on another session), or a subagent.
     struct Actor {
         let id: String
@@ -384,19 +395,18 @@ final class OfficeSimulation: ObservableObject {
     @Published private(set) var hits: [Hit] = []
 
     private var actors: [String: Actor] = [:]
-    private var rests: [String: Rest] = [:]
+    private let planner: RestPlanner
     /// Who was standing at a window when routes were last planned.
     private var lastGazers: Set<String> = []
-    private var rng: SplitMix64
     private var tick = 0
     private var timer: Timer?
     private let store = SessionStore.shared
     private let settings = SettingsStore.shared
     private let sprites = SpriteLibrary.shared
 
-    /// A fixed seed makes rest choices repeatable (used by --render-preview).
-    init(seed: UInt64 = .random(in: 0 ... .max)) {
-        rng = SplitMix64(seed)
+    /// The shared planner keeps the office in step with the desktop pet; --render-preview passes a seeded one.
+    init(planner: RestPlanner? = nil) {
+        self.planner = planner ?? .shared
     }
 
     func start() {
@@ -410,6 +420,7 @@ final class OfficeSimulation: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        planner.walking = [:]
     }
 
     /// Runs the simulation without a timer (used by --render-preview).
@@ -417,7 +428,7 @@ final class OfficeSimulation: ObservableObject {
 
     /// Sends a sleeping agent to a given spot for good (used by --render-preview).
     func debugRest(_ key: String, _ spot: OfficeLayout.RestSpot, _ pastime: Pastime) {
-        rests[key] = Rest(spot: spot, pastime: pastime, until: .max)
+        planner.debugRest(key, spot, pastime)
     }
 
     private func step() {
@@ -426,12 +437,8 @@ final class OfficeSimulation: ObservableObject {
         let L = OfficeLayout.make(sessions: sessions, projectName: settings.projectName)
         let byKey = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
 
-        // Resting agents do something random at a free spot, then move on to something else when it's time.
-        rests = rests.filter { byKey[$0.key]?.activity == .sleeping }
-        for s in sessions where s.activity == .sleeping {
-            if let r = rests[s.id], r.until > tick, stillThere(r, key: s.id, in: L) { continue }
-            pickRest(for: s.id, in: L)
-        }
+        planner.update(L)
+        let rests = planner.rests
 
         // Spawn / retarget actors
         var wanted = Set<String>()
@@ -513,51 +520,10 @@ final class OfficeSimulation: ObservableObject {
             if a.goal == .door, !a.walking, !wanted.contains(id) { actors.removeValue(forKey: id) }
         }
 
+        planner.walking = Dictionary(actors.values.filter { $0.subId == nil && $0.walking }.map { ($0.sessionKey, ($0.goal, $0.facing)) },
+                                     uniquingKeysWith: { a, _ in a })
         layout = L
         frame = render(L, byKey)
-    }
-
-    /// The spot still exists in this layout, and a chat still has someone on the other side.
-    private func stillThere(_ r: Rest, key: String, in L: OfficeLayout) -> Bool {
-        guard L.restFeet(r.spot, sessionKey: key) != nil else { return false }
-        if case .chat(let i, let side) = r.spot { return rests.values.contains { $0.spot == .chat(i, 1 - side) } }
-        return true
-    }
-
-    /// Sends them to a random kind of rest with a free spot (other than the one they're leaving), with something to do there.
-    /// A chat at a window pulls in another resting agent as the other side.
-    private func pickRest(for key: String, in L: OfficeLayout) {
-        let current = rests[key]?.spot
-        let others = rests.filter { $0.key != key }
-        let taken = Set(others.map(\.value.spot))
-        // A window holds one gazer or one pair of chatters.
-        let busyWindows = Set(taken.compactMap { spot -> Int? in
-            switch spot {
-            case .window(let i), .chat(let i, _): return i
-            default: return nil
-            }
-        })
-        func free(_ spot: OfficeLayout.RestSpot) -> Bool {
-            switch spot {
-            case .desk: return true
-            case .window(let i): return !busyWindows.contains(i)
-            case .chat(let i, _): return !busyWindows.contains(i) && !others.isEmpty
-            default: return !taken.contains(spot)
-            }
-        }
-        let kinds = L.restKinds.map { $0.filter { $0 != current && free($0) } }.filter { !$0.isEmpty }
-        // Napping at the desk is the fallback, so it comes up less often than a trip to the lounge.
-        let weights = kinds.map { $0 == [.desk] ? 0.35 : 1 }
-        var roll = Double.random(in: 0..<weights.reduce(0, +), using: &rng)
-        let kind = kinds.indices.first { roll -= weights[$0]; return roll < 0 }.map { kinds[$0] }
-        let spot = kind?.randomElement(using: &rng) ?? .desk
-        let pastime = Pastime.choices(at: spot).randomElement(using: &rng) ?? .nap
-        // Naps last a while; everything else is a short break.
-        let seconds = pastime == .nap ? Int.random(in: 60...150, using: &rng) : Int.random(in: 20...50, using: &rng)
-        rests[key] = Rest(spot: spot, pastime: pastime, until: tick + seconds * 12)
-        if case .chat(let i, _) = spot, let partner = others.keys.randomElement(using: &rng) {
-            rests[partner] = Rest(spot: .chat(i, 1), pastime: .chat, until: tick + seconds * 12)
-        }
     }
 
     // MARK: Rendering
@@ -611,7 +577,7 @@ final class OfficeSimulation: ObservableObject {
             let activity = sub?.activity ?? s.activity
             let ref = characterRef(for: s, subId: a.subId)
             let skin = sprites.skin(for: ref, shirt: settings.projectColor(s.projectKey))
-            let plan: Rest? = { if case .rest(let spot) = a.goal, let r = rests[a.sessionKey], r.spot == spot { return r }; return nil }()
+            let plan: RestPlanner.Rest? = { if case .rest(let spot) = a.goal, let r = planner.rests[a.sessionKey], r.spot == spot { return r }; return nil }()
             let rest = a.walking ? nil : plan
             let napping = a.goal == .rest(.desk) && !a.walking
             let seated = (a.goal == .seat || napping) && !a.walking
@@ -678,7 +644,7 @@ final class OfficeSimulation: ObservableObject {
                                    rect: CGRect(x: rect.minX - 2, y: headTop - 2, width: rect.width + 4, height: rect.maxY - headTop + 2),
                                    nameAnchor: seated ? CGPoint(x: (L.seats[a.sessionKey]?.cell.midX ?? a.pos.x), y: (L.seats[a.sessionKey]?.cell.minY ?? 0) + 70)
                                        : CGPoint(x: a.pos.x, y: a.pos.y + 6),
-                                   label: plan.map { $0.pastime.label(at: $0.spot) }))
+                                   label: a.walking ? a.goal.label : plan.map { $0.pastime.label(at: $0.spot) }))
             }
         }
 
@@ -703,5 +669,105 @@ final class OfficeSimulation: ObservableObject {
             return "\(parts[0]):\(n + 1 + i)"
         }
         return ref
+    }
+}
+
+/// Decides what each resting agent does, for the office and the desktop pet alike, so both always show the same thing.
+/// Runs whether or not the office is open, using the spots the office layout would have.
+@MainActor
+final class RestPlanner {
+    static let shared = RestPlanner()
+
+    struct Rest {
+        let spot: OfficeLayout.RestSpot
+        let pastime: OfficeSimulation.Pastime
+        /// When the agent gets up and picks something else.
+        let until: Date
+    }
+
+    private(set) var rests: [String: Rest] = [:]
+    /// Who is walking across the office right now, where to and facing which way. Empty while the office is closed.
+    var walking: [String: (goal: OfficeSimulation.Goal, facing: Facing)] = [:]
+    private var rng: SplitMix64
+    private var sleepers: Set<String> = []
+    private var nextCheck = Date.distantPast
+    private let store = SessionStore.shared
+    private let settings = SettingsStore.shared
+
+    /// A fixed seed makes rest choices repeatable (used by --render-preview).
+    init(seed: UInt64 = .random(in: 0 ... .max)) {
+        rng = SplitMix64(seed)
+    }
+
+    /// What a resting session is doing right now.
+    func rest(for key: String) -> Rest? {
+        update()
+        return rests[key]
+    }
+
+    /// Resting agents do something random at a free spot, then move on to something else when it's time.
+    /// The office passes its layout every frame; without one, it re-plans when someone starts or stops resting, else twice a second.
+    func update(_ layout: OfficeLayout? = nil) {
+        let sessions = store.activeSessions
+        let sleeping = Set(sessions.filter { $0.activity == .sleeping }.map(\.id))
+        let now = Date()
+        guard layout != nil || sleeping != sleepers || now >= nextCheck else { return }
+        sleepers = sleeping
+        nextCheck = now.addingTimeInterval(0.5)
+        rests = rests.filter { sleeping.contains($0.key) }
+        guard !sleeping.isEmpty else { return }
+        let L = layout ?? OfficeLayout.make(sessions: sessions, projectName: settings.projectName)
+        for s in sessions where sleeping.contains(s.id) {
+            if let r = rests[s.id], r.until > now, stillThere(r, key: s.id, in: L) { continue }
+            pickRest(for: s.id, in: L, now: now)
+        }
+    }
+
+    /// Sends a sleeping agent to a given spot for good (used by --render-preview).
+    func debugRest(_ key: String, _ spot: OfficeLayout.RestSpot, _ pastime: OfficeSimulation.Pastime) {
+        rests[key] = Rest(spot: spot, pastime: pastime, until: .distantFuture)
+    }
+
+    /// The spot still exists in this layout, and a chat still has someone on the other side.
+    private func stillThere(_ r: Rest, key: String, in L: OfficeLayout) -> Bool {
+        guard L.restFeet(r.spot, sessionKey: key) != nil else { return false }
+        if case .chat(let i, let side) = r.spot { return rests.values.contains { $0.spot == .chat(i, 1 - side) } }
+        return true
+    }
+
+    /// Sends them to a random kind of rest with a free spot (other than the one they're leaving), with something to do there.
+    /// A chat at a window pulls in another resting agent as the other side.
+    private func pickRest(for key: String, in L: OfficeLayout, now: Date) {
+        let current = rests[key]?.spot
+        let others = rests.filter { $0.key != key }
+        let taken = Set(others.map(\.value.spot))
+        // A window holds one gazer or one pair of chatters.
+        let busyWindows = Set(taken.compactMap { spot -> Int? in
+            switch spot {
+            case .window(let i), .chat(let i, _): return i
+            default: return nil
+            }
+        })
+        func free(_ spot: OfficeLayout.RestSpot) -> Bool {
+            switch spot {
+            case .desk: return true
+            case .window(let i): return !busyWindows.contains(i)
+            case .chat(let i, _): return !busyWindows.contains(i) && !others.isEmpty
+            default: return !taken.contains(spot)
+            }
+        }
+        let kinds = L.restKinds.map { $0.filter { $0 != current && free($0) } }.filter { !$0.isEmpty }
+        // Napping at the desk is the fallback, so it comes up less often than a trip to the lounge.
+        let weights = kinds.map { $0 == [.desk] ? 0.35 : 1 }
+        var roll = Double.random(in: 0..<weights.reduce(0, +), using: &rng)
+        let kind = kinds.indices.first { roll -= weights[$0]; return roll < 0 }.map { kinds[$0] }
+        let spot = kind?.randomElement(using: &rng) ?? .desk
+        let pastime = OfficeSimulation.Pastime.choices(at: spot).randomElement(using: &rng) ?? .nap
+        // Naps last a while; everything else is a short break.
+        let until = now.addingTimeInterval(pastime == .nap ? .random(in: 60...150, using: &rng) : .random(in: 20...50, using: &rng))
+        rests[key] = Rest(spot: spot, pastime: pastime, until: until)
+        if case .chat(let i, _) = spot, let partner = others.keys.randomElement(using: &rng) {
+            rests[partner] = Rest(spot: .chat(i, 1), pastime: .chat, until: until)
+        }
     }
 }
