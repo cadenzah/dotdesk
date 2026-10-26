@@ -158,6 +158,20 @@ extension CGImage {
         cropping(to: CGRect(x: x, y: y, width: w, height: h))
     }
 
+    /// The image turned a quarter turn counter-clockwise, so its top ends up on the left.
+    func rotatedLeft() -> CGImage? {
+        let w = width, h = height
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        let info = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let src = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4, space: space, bitmapInfo: info),
+              let dst = CGContext(data: nil, width: h, height: w, bitsPerComponent: 8, bytesPerRow: h * 4, space: space, bitmapInfo: info),
+              let sp = src.data, let dp = dst.data else { return nil }
+        src.draw(self, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let s = sp.bindMemory(to: UInt32.self, capacity: w * h), d = dp.bindMemory(to: UInt32.self, capacity: w * h)
+        for y in 0..<h { for x in 0..<w { d[(w - 1 - x) * h + y] = s[y * w + x] } }
+        return dst.makeImage()
+    }
+
     /// Bounding box of non-transparent pixels.
     func opaqueBounds() -> CGRect {
         let w = width, h = height

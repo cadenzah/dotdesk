@@ -73,6 +73,17 @@ enum DebugRender {
             sim.advance(160)
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(k).png")) }
         }
+        // Lounge: one sleeper, then two, with a frame mid-walk and one settled.
+        for (name, keys) in [("lounge-1", ["claude:demo-1"]), ("lounge-2", ["claude:demo-1", "claude:demo-2"]),
+                             ("lounge-3", ["claude:demo-1", "claude:demo-2", "codex:demo-3"])] {
+            store.demoStep()
+            sim.advance(160)
+            store.demoSleep(keys)
+            sim.advance(14)
+            if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(name)-walk.png")) }
+            sim.advance(160)
+            if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(name).png")) }
+        }
         // Same scene with other character sources.
         let paRefs = ["pa:0", "pa:3", "pa:5"], pokeRefs = SpriteLibrary.shared.pokemon.prefix(3).map { "poke:\($0.id)" }
         for (name, refs) in [("pa", paRefs), ("poke", Array(pokeRefs))] where !refs.isEmpty {
@@ -82,6 +93,15 @@ enum DebugRender {
             store.demoStep()
             sim.advance(10)
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(name).png")) }
+        }
+        // The lounge again, with Pixel Agents and Pokémon sitting on the sofa.
+        for (name, refs) in [("pa", paRefs), ("poke", Array(pokeRefs))] where !refs.isEmpty {
+            for (i, key) in ["claude:demo-1", "claude:demo-2"].enumerated() {
+                settings.s.sessions[key] = SessionOverride(name: nil, character: refs[i % refs.count])
+            }
+            store.demoSleep(["claude:demo-1", "claude:demo-2"])
+            sim.advance(160)
+            if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-lounge-\(name).png")) }
         }
         settings.s.sessions = [:]
     }

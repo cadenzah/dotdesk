@@ -3,7 +3,8 @@ import CoreGraphics
 /// Procedurally painted 16x32 chibi office workers. Original art, safe to ship with the app.
 ///
 /// Sheets follow the Pixel Agents layout (rows: down, up, right; 16x32 frames) so every
-/// character source renders through the same code, with two extra columns: sleep and cheer.
+/// character source renders through the same code, with three extra columns: sleep, cheer and doze
+/// (sitting with eyes closed).
 enum BuiltinCharacters {
     enum HairStyle { case short, long, bun, spiky, cap }
 
@@ -17,7 +18,7 @@ enum BuiltinCharacters {
     }
 
     enum Frame: Int, CaseIterable {
-        case walk1 = 0, stand, walk2, type1, type2, read1, read2, sleep, cheer
+        case walk1 = 0, stand, walk2, type1, type2, read1, read2, sleep, cheer, doze
     }
 
     static let looks: [Look] = [
@@ -54,7 +55,7 @@ enum BuiltinCharacters {
         let eye = RGBA(0x2b2440), blush = RGBA(0xf59ca0), mouth = RGBA(0xb5524a)
         let paper = RGBA(0xfdfdf6), ink = RGBA(0xb8bcc8)
         let side = dir == .right || dir == .left
-        let seated = !side && [.type1, .type2, .read1, .read2].contains(f)
+        let seated = !side && [.type1, .type2, .read1, .read2, .doze].contains(f)
 
         // Legs
         if side {
@@ -125,7 +126,7 @@ enum BuiltinCharacters {
         }
 
         // Head
-        let closed = f == .sleep
+        let closed = f == .sleep || f == .doze
         switch dir {
         case .down:
             c.rect(3, 8, 10, 11, skin)

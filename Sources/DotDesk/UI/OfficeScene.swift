@@ -19,16 +19,26 @@ struct OfficeLayout {
         let rect: CGRect
     }
 
+    /// Floor area characters walk around. A spot inside one (a chair, a sofa seat) is entered and left from `exitUp`'s side.
+    struct Obstacle {
+        let rect: CGRect
+        let exitUp: Bool
+        var padded: CGRect { rect.insetBy(dx: -3, dy: -2) }
+        func exit(_ x: CGFloat) -> CGPoint { CGPoint(x: x, y: exitUp ? padded.minY - 2 : padded.maxY + 2) }
+    }
+
     var size = CGSize(width: 240, height: 124)
     var seats: [String: Seat] = [:]
     var zones: [Zone] = []
+    var obstacles: [Obstacle] = []
     var lounge = CGRect.zero
     var door = CGPoint.zero
     var corridorY: CGFloat = 0
 
     func loungeSpot(_ i: Int) -> CGPoint {
         let x = lounge.minX, y = lounge.minY
-        if i < 2 { return CGPoint(x: x + 24 + CGFloat(i) * 16, y: y + 20) }
+        // Sofa seats: feet at the sofa's front edge, so a sitting sprite's back rests against the backrest.
+        if i < 2 { return CGPoint(x: x + 24 + CGFloat(i) * 16, y: y + 22) }
         let j = i - 2
         let perRow = 3
         return CGPoint(x: x + 14 + CGFloat(j % perRow) * 18, y: y + 52 + CGFloat(j / perRow) * 18)
@@ -68,6 +78,8 @@ struct OfficeLayout {
                 for (i, s) in chunk.enumerated() {
                     let cell = CGRect(x: x + 4 + CGFloat(i) * deskW, y: y, width: deskW, height: cellH)
                     L.seats[s.id] = Seat(sessionKey: s.id, cell: cell)
+                    // Chair and desk together; the chair is reached from behind.
+                    L.obstacles.append(Obstacle(rect: CGRect(x: cell.minX + 1, y: cell.minY + 22, width: 46, height: 44), exitUp: true))
                 }
                 x += w + 4
             }
@@ -80,7 +92,152 @@ struct OfficeLayout {
         L.lounge = CGRect(x: margin + innerW + margin, y: wallH + 4, width: loungeW, height: h - wallH - 8)
         L.door = CGPoint(x: margin + 13, y: wallH + 6)
         L.corridorY = wallH + 8
+        // Floor footprints of the lounge furniture drawn in `OfficeSimulation.render`.
+        let lx = L.lounge.minX, ly = L.lounge.minY
+        L.obstacles.append(Obstacle(rect: CGRect(x: lx + 16, y: ly + 6, width: 32, height: 16), exitUp: false))
+        L.obstacles.append(Obstacle(rect: CGRect(x: lx + 4, y: ly + 24, width: 12, height: 16), exitUp: false))
+        L.obstacles.append(Obstacle(rect: CGRect(x: lx + 46, y: ly + 30, width: 16, height: 14), exitUp: false))
+        if L.lounge.height > 90 {
+            L.obstacles.append(Obstacle(rect: CGRect(x: lx + 4, y: L.lounge.maxY - 12, width: 16, height: 12), exitUp: false))
+        }
         return L
+    }
+
+    // MARK: Walking routes
+
+    /// Corner points from `start` to `end` that go around desks and furniture through the aisles.
+    func route(from start: CGPoint, to end: CGPoint) -> [CGPoint] {
+        var head: [CGPoint] = [], tail = [end]
+        var a = start, b = end
+        if let o = obstacles.first(where: { $0.padded.contains(start) }) { a = o.exit(start.x); head = [a] }
+        if let o = obstacles.first(where: { $0.padded.contains(end) }) { b = o.exit(end.x); tail = [b, end] }
+        guard let mid = gridPath(from: a, to: b) else {
+            if abs(start.y - end.y) < 2 { return [end] }
+            return [CGPoint(x: start.x, y: corridorY), CGPoint(x: end.x, y: corridorY), end]
+        }
+        var out: [CGPoint] = []
+        for p in head + mid + tail {
+            if let last = out.last, hypot(p.x - last.x, p.y - last.y) < 0.5 { continue }
+            if out.count >= 2 {
+                let q = out[out.count - 2], r = out[out.count - 1]
+                if (abs(q.x - r.x) < 0.5 && abs(r.x - p.x) < 0.5) || (abs(q.y - r.y) < 0.5 && abs(r.y - p.y) < 0.5) { out.removeLast() }
+            }
+            out.append(p)
+        }
+        return out
+    }
+
+    /// A* over a 4px grid of free floor, with a cost per turn so paths stay on a few straight lines.
+    private func gridPath(from a: CGPoint, to b: CGPoint) -> [CGPoint]? {
+        let g: CGFloat = 4
+        let cols = Int(size.width / g) + 1, rows = Int(size.height / g) + 1
+        let blocked = obstacles.map(\.padded)
+        var free = [Bool](repeating: false, count: cols * rows)
+        for j in 0..<rows {
+            for i in 0..<cols {
+                let p = CGPoint(x: CGFloat(i) * g, y: CGFloat(j) * g)
+                free[j * cols + i] = p.x >= 8 && p.x <= size.width - 8 && p.y >= OfficeLayout.wallH + 4 && p.y <= size.height - 2
+                    && !blocked.contains { $0.contains(p) }
+            }
+        }
+        func nearest(_ p: CGPoint) -> Int? {
+            let ci = Int((p.x / g).rounded()), cj = Int((p.y / g).rounded())
+            var best: (Int, CGFloat)?
+            for j in cj - 2...cj + 2 where j >= 0 && j < rows {
+                for i in ci - 2...ci + 2 where i >= 0 && i < cols && free[j * cols + i] {
+                    let d = hypot(CGFloat(i) * g - p.x, CGFloat(j) * g - p.y)
+                    if best == nil || d < best!.1 { best = (j * cols + i, d) }
+                }
+            }
+            return best?.0
+        }
+        guard let s = nearest(a), let t = nearest(b) else { return nil }
+
+        // State = node * 4 + heading (right, left, down, up).
+        let steps = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        let turnCost: Float = 8
+        var cost = [Float](repeating: .infinity, count: cols * rows * 4)
+        var parent = [Int32](repeating: -1, count: cols * rows * 4)
+        var heap = MinHeap()
+        let ti = t % cols, tj = t / cols
+        func h(_ n: Int) -> Float { Float(abs(n % cols - ti) + abs(n / cols - tj)) * Float(g) }
+        for d in 0..<4 { cost[s * 4 + d] = 0; heap.push(h(s), s * 4 + d) }
+        var goal: Int?
+        while let (f, st) = heap.pop() {
+            let n = st / 4, d = st % 4
+            if f - h(n) > cost[st] { continue }
+            if n == t { goal = st; break }
+            for (nd, (dx, dy)) in steps.enumerated() {
+                let i = n % cols + dx, j = n / cols + dy
+                guard i >= 0, i < cols, j >= 0, j < rows, free[j * cols + i] else { continue }
+                let ns = (j * cols + i) * 4 + nd
+                // The lane along the left wall is a squeeze; take it only when it is clearly shorter.
+                let c = cost[st] + Float(g) + (nd == d ? 0 : turnCost) + (i * Int(g) < 12 ? 2 : 0)
+                if c < cost[ns] { cost[ns] = c; parent[ns] = Int32(st); heap.push(c + h(j * cols + i), ns) }
+            }
+        }
+        guard var st = goal else { return nil }
+
+        var nodes: [CGPoint] = []
+        while true {
+            let n = st / 4
+            nodes.append(CGPoint(x: CGFloat(n % cols) * g, y: CGFloat(n / cols) * g))
+            let p = Int(parent[st])
+            if p < 0 { break }
+            st = p
+        }
+        nodes.reverse()
+        var corners = [nodes[0]]
+        for k in 1..<nodes.count {
+            if k == nodes.count - 1 { corners.append(nodes[k]); break }
+            let p = nodes[k - 1], q = nodes[k], r = nodes[k + 1]
+            if (q.x - p.x != r.x - q.x) || (q.y - p.y != r.y - q.y) { corners.append(q) }
+        }
+        // Slide the first and last legs off the grid lines onto the real endpoints.
+        let k = corners.count - 1
+        if k == 0 { return [b] }
+        if k == 1 {
+            return abs(corners[0].x - corners[1].x) < 0.5 ? [CGPoint(x: a.x, y: b.y), b] : [CGPoint(x: b.x, y: a.y), b]
+        }
+        if abs(corners[0].x - corners[1].x) < 0.5 { corners[1].x = a.x } else { corners[1].y = a.y }
+        if abs(corners[k - 1].x - corners[k].x) < 0.5 { corners[k - 1].x = b.x } else { corners[k - 1].y = b.y }
+        corners[0] = a
+        corners[k] = b
+        return Array(corners.dropFirst())
+    }
+}
+
+/// Binary min-heap of (priority, value) for the route search.
+private struct MinHeap {
+    private var items: [(Float, Int)] = []
+
+    mutating func push(_ priority: Float, _ value: Int) {
+        items.append((priority, value))
+        var i = items.count - 1
+        while i > 0 {
+            let p = (i - 1) / 2
+            if items[p].0 <= items[i].0 { break }
+            items.swapAt(p, i); i = p
+        }
+    }
+
+    mutating func pop() -> (Float, Int)? {
+        guard !items.isEmpty else { return nil }
+        let top = items[0]
+        let last = items.removeLast()
+        if !items.isEmpty {
+            items[0] = last
+            var i = 0
+            while true {
+                let l = 2 * i + 1, r = l + 1
+                var m = i
+                if l < items.count, items[l].0 < items[m].0 { m = l }
+                if r < items.count, items[r].0 < items[m].0 { m = r }
+                if m == i { break }
+                items.swapAt(m, i); i = m
+            }
+        }
+        return top
     }
 }
 
@@ -178,11 +335,7 @@ final class OfficeSimulation: ObservableObject {
             }
             if a.routeEnd.map({ hypot($0.x - target.x, $0.y - target.y) > 0.5 }) ?? true {
                 a.routeEnd = target
-                if abs(a.pos.y - target.y) < 2 {
-                    a.route = [target]
-                } else {
-                    a.route = [CGPoint(x: a.pos.x, y: L.corridorY), CGPoint(x: target.x, y: L.corridorY), target]
-                }
+                a.route = L.route(from: a.pos, to: target)
             }
             var budget: CGFloat = 2.6
             while budget > 0, let next = a.route.first {
@@ -246,7 +399,10 @@ final class OfficeSimulation: ObservableObject {
 
         // Lounge furniture
         let lx = L.lounge.minX, ly = L.lounge.minY
-        draws.append((ly + 22, { OfficeArt.sofa(p, lx + 16, ly + 6) }))
+        let sofa = CGRect(x: lx + 16, y: ly + 6, width: 32, height: 16)
+        draws.append((sofa.maxY, { OfficeArt.sofa(p, sofa.minX, sofa.minY) }))
+        // Someone alone on the sofa lies down; a second sleeper makes them sit up.
+        let sofaCount = actors.values.filter { if case .lounge(let i) = $0.goal { return i < 2 }; return false }.count
         draws.append((ly + 40, { OfficeArt.coffee(p, lx + 4, ly + 24) }))
         draws.append((ly + 44, { OfficeArt.plant(p, lx + 46, ly + 28) }))
         if L.lounge.height > 90 { draws.append((L.lounge.maxY, { OfficeArt.bookshelf(p, lx + 4, L.lounge.maxY - 34) })) }
@@ -259,10 +415,13 @@ final class OfficeSimulation: ObservableObject {
             let skin = sprites.skin(for: ref, shirt: settings.projectColor(s.projectKey))
             let seated = a.goal == .seat && !a.walking
             let lounging: Bool = { if case .lounge = a.goal, !a.walking { return true }; return false }()
-            var pose: Pose = a.walking ? .walk : (lounging ? .sleep : activity.pose)
+            let onSofa: Bool = { if case .lounge(let i) = a.goal, i < 2, !a.walking { return true }; return false }()
+            let lying = onSofa && sofaCount == 1 && skin.isSheet
+            var pose: Pose = a.walking ? .walk : (onSofa ? .sit : lounging ? .sleep : activity.pose)
             if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
             if !seated && a.subId == nil && (pose == .type || pose == .read) { pose = .stand }
-            let (img, flip) = skin.frame(facing: a.facing, pose: pose, tick: tick)
+            var (img, flip) = skin.frame(facing: a.facing, pose: pose, tick: tick)
+            if lying, let r = skin.frame(facing: .down, pose: .sleep, tick: tick).0.rotatedLeft() { (img, flip) = (r, false) }
 
             var bounce: CGFloat = 0
             if !a.walking {
@@ -270,21 +429,24 @@ final class OfficeSimulation: ObservableObject {
                 if activity == .waitingPermission || activity == .waitingInput { bounce = tick % 10 < 2 ? -1 : 0 }
             }
             let rect: CGRect
-            if skin.isSheet {
+            if lying {
+                // Head on the left armrest, body along the seat cushion.
+                rect = CGRect(x: sofa.minX - 4, y: sofa.minY, width: 32, height: 16)
+            } else if skin.isSheet {
                 rect = CGRect(x: a.pos.x - 8, y: a.pos.y - 32 + bounce, width: 16, height: 32)
             } else {
                 let box: CGFloat = a.subId == nil ? 26 : 18
                 let k = min(box / CGFloat(img.width), box / CGFloat(img.height), 1)
                 let w = CGFloat(img.width) * k, h = CGFloat(img.height) * k
-                rect = CGRect(x: a.pos.x - w / 2, y: a.pos.y - h + (seated ? -6 : 0) + bounce, width: w, height: h)
+                rect = CGRect(x: a.pos.x - w / 2, y: a.pos.y - h + (seated ? -6 : onSofa ? -4 : 0) + bounce, width: w, height: h)
             }
-            let z = seated ? (L.seats[a.sessionKey]?.cell.minY ?? 0) + 61 : a.pos.y
+            let z = seated ? (L.seats[a.sessionKey]?.cell.minY ?? 0) + 61 : onSofa ? sofa.maxY + 0.5 : a.pos.y
             draws.append((z, { p.image(img, rect.minX, rect.minY, rect.width, rect.height, flipX: flip, smooth: !skin.isSheet) }))
 
-            let headTop = skin.isSheet ? rect.minY + 7 : rect.minY
+            let headTop = lying ? rect.minY + 3 : skin.isSheet ? rect.minY + 7 : rect.minY
             if !a.walking, let icon = (lounging ? PixelIcon.zzz : activity.icon) {
                 // Bubbles stay at the resting position instead of bobbing with the sprite.
-                let bx = rect.midX - 2, by = headTop - 13 - bounce
+                let bx = lying ? rect.minX + 8 : rect.midX - 2, by = headTop - 13 - bounce
                 bubbles.append({ p.image(icon.bubble, bx, by) })
             }
             if a.subId == nil {

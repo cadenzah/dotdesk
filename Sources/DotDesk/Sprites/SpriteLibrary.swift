@@ -11,7 +11,7 @@ protocol CharacterSkin: AnyObject {
 }
 
 /// A 16x32 sprite sheet in the Pixel Agents layout: rows down/up/right, columns
-/// walk1, stand, walk2, type1, type2, read1, read2 (+ sleep, cheer for built-in sheets).
+/// walk1, stand, walk2, type1, type2, read1, read2 (+ sleep, cheer, doze for built-in sheets).
 final class SheetSkin: CharacterSkin {
     private let frames: [[CGImage]]
     let isSheet = true
@@ -42,6 +42,8 @@ final class SheetSkin: CharacterSkin {
         case .read: col = 5 + (tick / 8) % 2
         case .sleep: col = frames[row].count > 7 ? 7 : 1
         case .cheer: col = frames[row].count > 8 ? 8 : 1
+        // Sheets without a dozing frame sit like they do at a desk.
+        case .sit: col = frames[row].count > 9 ? 9 : 3
         }
         let r = frames[row]
         return (r[min(col, r.count - 1)], facing == .left)
@@ -79,7 +81,7 @@ final class AnimatedSkin: CharacterSkin {
     func frame(facing: Facing, pose: Pose, tick: Int) -> (CGImage, Bool) {
         // Pokémon front sprites face left; mirror when walking right.
         let flip = facing == .right
-        if pose == .sleep || frames.count == 1 { return (frames[0], flip) }
+        if pose == .sleep || pose == .sit || frames.count == 1 { return (frames[0], flip) }
         let speed = pose == .type ? 1.6 : 1
         var t = (Date().timeIntervalSinceReferenceDate * speed).truncatingRemainder(dividingBy: total)
         for (i, d) in delays.enumerated() {

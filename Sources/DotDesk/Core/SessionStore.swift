@@ -365,5 +365,15 @@ final class SessionStore: ObservableObject {
         demoStepIndex += 1
     }
 
+    /// Puts the given demo sessions to sleep (used by --render-preview to show the lounge).
+    func demoSleep(_ keys: [String]) {
+        for key in keys {
+            guard var s = sessions[key] else { continue }
+            s.setActivity(.sleeping, detail: "")
+            s.subagents.removeAll()
+            sessions[key] = s
+        }
+    }
+
     var demoRunning: Bool { demoTimer != nil }
 }
