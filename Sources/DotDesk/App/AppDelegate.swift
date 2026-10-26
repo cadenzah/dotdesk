@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var codexWatcher = CodexRolloutWatcher()
     private var settingsWindow: NSWindow?
     private var welcomeWindow: NSWindow?
+    private var editWindow: NSWindow?
     private let integration = IntegrationStatus.shared
     private var cancellables: Set<AnyCancellable> = []
 
@@ -212,47 +213,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
-    /// Small dialog to rename an agent and pick its character.
+    /// Window to rename an agent and pick its character.
     func editSession(_ key: String) {
         guard let s = store.session(key) else { return }
-        NSApp.activate(ignoringOtherApps: true)
-        let alert = NSAlert()
-        alert.messageText = "에이전트 꾸미기"
-        alert.informativeText = "\(settings.projectName(s.projectKey)) · \(s.provider.displayName)"
-        let name = NSTextField(string: settings.s.sessions[key]?.name ?? "")
-        name.placeholderString = s.autoNickname
-        let selection = CharacterSelection(settings.s.sessions[key]?.character)
-        let picker = NSHostingView(rootView: CharacterPicker(
-            selection: selection,
+        editWindow?.close()
+        let w = NSWindow(contentRect: .zero, styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        w.title = "에이전트 꾸미기"
+        w.isReleasedWhenClosed = false
+        let view = AgentEditView(
+            title: store.nickname(s),
+            subtitle: "\(settings.projectName(s.projectKey)) · \(s.provider.displayName)",
+            name: settings.s.sessions[key]?.name ?? "",
+            namePlaceholder: s.autoNickname,
+            ref: settings.s.sessions[key]?.character,
             autoRef: settings.s.projects[s.projectKey]?.character ?? s.autoCharacter,
-            shirt: settings.projectColor(s.projectKey)))
-        picker.setFrameSize(picker.fittingSize)
-        let stack = NSStackView(views: [label("이름"), name, label("캐릭터"), picker])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
-        name.widthAnchor.constraint(equalToConstant: picker.fittingSize.width).isActive = true
-        stack.setFrameSize(stack.fittingSize)
-        alert.accessoryView = stack
-        alert.addButton(withTitle: "저장")
-        alert.addButton(withTitle: "취소")
-        alert.window.initialFirstResponder = name
-        let response = alert.runModal()
-        selection.stop()
-        guard response == .alertFirstButtonReturn else { return }
-        var o = settings.s.sessions[key] ?? SessionOverride()
-        o.name = name.stringValue.isEmpty ? nil : name.stringValue
-        o.character = selection.ref
-        o.lastSeen = Date()
-        settings.s.sessions[key] = o
-        pruneSessionOverrides()
-    }
-
-    private func label(_ s: String) -> NSTextField {
-        let l = NSTextField(labelWithString: s)
-        l.font = .systemFont(ofSize: 11)
-        l.textColor = .secondaryLabelColor
-        return l
+            shirt: settings.projectColor(s.projectKey),
+            save: { [weak self, weak w] name, ref in
+                guard let self else { return }
+                var o = self.settings.s.sessions[key] ?? SessionOverride()
+                o.name = name.isEmpty ? nil : name
+                o.character = ref
+                o.lastSeen = Date()
+                self.settings.s.sessions[key] = o
+                self.pruneSessionOverrides()
+                w?.close()
+            },
+            cancel: { [weak w] in w?.close() })
+        let host = NSHostingView(rootView: view)
+        w.contentView = host
+        w.setContentSize(host.fittingSize)
+        w.center()
+        editWindow = w
+        NSApp.activate(ignoringOtherApps: true)
+        w.makeKeyAndOrderFront(nil)
     }
 
     private func pruneSessionOverrides() {

@@ -217,6 +217,11 @@ final class SpriteLibrary: ObservableObject {
         return choices.first { $0.ref == ref }?.name ?? ref
     }
 
+    func group(of ref: String) -> String? {
+        let base = ref.hasSuffix(":shiny") ? String(ref.dropLast(":shiny".count)) : ref
+        return choices.first { $0.ref == base }?.group
+    }
+
     // MARK: Pixel Agents furniture
 
     func furniture(_ folder: String, _ file: String) -> CGImage? {
