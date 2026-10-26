@@ -78,6 +78,8 @@ final class CodexRolloutWatcher {
         }
         t.partial = buf
         let catchingUp = t.sessionId == nil
+        DailyStats.shared.paused = catchingUp
+        defer { DailyStats.shared.paused = false }
         for line in lines {
             guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
             handle(obj, tail: &t, home: home)
@@ -129,6 +131,7 @@ final class CodexRolloutWatcher {
             let msg = p["message"] as? String ?? ""
             let starts = ptype == "task_started"
             change = { s in
+                if !starts { DailyStats.shared.recordPrompt(s) }
                 s.setActivity(.thinking, detail: truncate(msg, 40))
                 if starts || s.turnStartedAt == nil { s.turnStartedAt = Date() }
                 if !msg.isEmpty { s.addLog("요청: \(truncate(msg, 60))") }
@@ -159,6 +162,7 @@ final class CodexRolloutWatcher {
             }
             let (a, d) = ActivityMapper.activity(forTool: name, input: input)
             change = { s in
+                DailyStats.shared.recordTool(s, tool: name, input: input)
                 s.setActivity(a, detail: d)
                 s.addLog("\(a.label) · \(d)")
             }

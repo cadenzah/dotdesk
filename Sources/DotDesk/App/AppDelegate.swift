@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settingsWindow: NSWindow?
     private var welcomeWindow: NSWindow?
     private var editWindow: NSWindow?
+    private var summaryWindow: NSWindow?
     private let integration = IntegrationStatus.shared
     private var cancellables: Set<AnyCancellable> = []
 
@@ -40,6 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         office = OfficeWindowController()
         _ = PetManager.shared
         AlertCenter.shared.start()
+        DailyStats.shared.onSummaryDue = { [weak self] in self?.showSummary() }
+        DailyStats.shared.start()
         codexWatcher.start()
 
         // Show/hide the office as settings and the set of sessions change.
@@ -65,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         store.releaseAllPermissions()
         Runtime.removePort()
         settings.saveNow()
+        DailyStats.shared.save()
     }
 
     /// Writes each visible window to ~/.dotdesk/snapshots (no screen-recording permission needed).
@@ -191,6 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         permItem.submenu = permMenu
         menu.addItem(permItem)
+        menu.addItem(MenuAction("오늘의 기록…") { [weak self] in self?.showSummary() })
         menu.addItem(MenuAction("알림 소리", checked: settings.s.alerts.sound) { [settings] in
             settings.s.alerts.sound.toggle()
         })
@@ -202,6 +207,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: Windows
+
+    func showSummary() {
+        if summaryWindow == nil {
+            let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 460, height: 600),
+                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            w.title = "오늘의 기록"
+            w.isReleasedWhenClosed = false
+            let host = NSHostingView(rootView: DailySummaryView())
+            host.sizingOptions = [.preferredContentSize]
+            w.contentView = host
+            w.center()
+            summaryWindow = w
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        summaryWindow?.makeKeyAndOrderFront(nil)
+    }
 
     func showWelcome() {
         if welcomeWindow == nil {

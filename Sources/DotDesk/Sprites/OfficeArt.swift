@@ -159,6 +159,24 @@ enum OfficeArt {
         p.fill(x, y + 1, 1, 1, RGBA(0xffffff))
     }
 
+    /// A whiteboard with today's busy time charted hour by hour over the last 12 hours (the label is drawn on top by the view).
+    static func whiteboard(_ p: PixelContext, _ r: CGRect, busyByHour: [Double]) {
+        p.fill(r.minX, r.minY, r.width, r.height, RGBA(0xadb5bd))
+        p.fill(r.minX + 1, r.minY + 1, r.width - 2, r.height - 3, RGBA(0xffffff))
+        p.fill(r.minX + 6, r.maxY - 2, r.width - 12, 2, RGBA(0x868e96))
+        p.fill(r.minX + 8, r.maxY - 3, 4, 1, RGBA(0xf03e3e)); p.fill(r.minX + 13, r.maxY - 3, 4, 1, RGBA(0x1c7ed6))
+        let hour = Calendar.current.component(.hour, from: Date())
+        let base = r.maxY - 4, maxH: CGFloat = 10
+        p.fill(r.minX + 3, base, r.width - 6, 1, RGBA(0xdee2e6))
+        for i in 0..<12 {
+            let h = (hour - 11 + i + 24) % 24
+            let v = min(1, busyByHour[h] / 3600)
+            guard v > 0 else { continue }
+            let bh = max(1, (CGFloat(v) * maxH).rounded())
+            p.fill(r.minX + 4 + CGFloat(i * 3), base - bh, 2, bh, i == 11 ? RGBA(0x1971c2) : RGBA(0x74c0fc))
+        }
+    }
+
     /// Bits of confetti drifting down around a celebrating character.
     static func confetti(_ p: PixelContext, _ r: CGRect, tick: Int) {
         let colors = [RGBA(0xf06595), RGBA(0xfab005), RGBA(0x4dabf7), RGBA(0x51cf66), RGBA(0x845ef7)]

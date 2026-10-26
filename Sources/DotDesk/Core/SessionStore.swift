@@ -105,9 +105,11 @@ final class SessionStore: ObservableObject {
             s.setActivity(.thinking, detail: truncate(prompt, 40))
             s.doneUntil = nil
             if s.turnStartedAt == nil || !prompt.hasPrefix("팀원") { s.turnStartedAt = Date() }
+            if !prompt.hasPrefix("팀원") { DailyStats.shared.recordPrompt(s) }
             s.addLog("요청: \(truncate(prompt, 60))")
         case "PreToolUse":
             let (a, d) = ActivityMapper.activity(forTool: toolName, input: toolInput)
+            DailyStats.shared.recordTool(s, tool: toolName, input: toolInput)
             if let agentId, let i = s.subagents.firstIndex(where: { $0.id == agentId }) {
                 s.subagents[i].activity = a
                 s.subagents[i].detail = d
@@ -186,7 +188,9 @@ final class SessionStore: ObservableObject {
     func react(_ s: inout AgentSession, command: String?, failed: Bool, output: String) {
         let isTest = command.map(ActivityMapper.isTestCommand) ?? false
         if isTest {
-            if failed || ActivityMapper.outputShowsTestFailure(output) {
+            let passed = !failed && !ActivityMapper.outputShowsTestFailure(output)
+            DailyStats.shared.recordTest(s, passed: passed)
+            if !passed {
                 s.react(.testsFailed, for: 4)
                 s.addLog("테스트 실패")
             } else {
@@ -202,6 +206,7 @@ final class SessionStore: ObservableObject {
     func finishTurn(_ s: inout AgentSession) {
         let took = s.turnStartedAt.map { Date().timeIntervalSince($0) } ?? 0
         s.turnStartedAt = nil
+        DailyStats.shared.recordTurnDone(s, long: took >= Self.celebrateAfter)
         if took >= Self.celebrateAfter {
             s.react(.celebrate, for: 8)
             s.doneUntil = Date().addingTimeInterval(8)
@@ -213,7 +218,9 @@ final class SessionStore: ObservableObject {
     }
 
     func setUsage(_ key: String, _ usage: ContextUsage) {
-        guard sessions[key] != nil, sessions[key]?.usage != usage else { return }
+        guard let s = sessions[key], s.usage != usage else { return }
+        // The first read of a transcript covers work from before DotDesk saw it; only count what comes after.
+        if let before = s.usage?.outputTokens { DailyStats.shared.recordOutput(s, tokens: usage.outputTokens - before) }
         sessions[key]?.usage = usage
     }
 

@@ -50,6 +50,8 @@ struct OfficeLayout {
     }
 
     var sofa: CGRect { CGRect(x: lounge.minX + 16, y: lounge.minY + 6, width: 32, height: 16) }
+    /// On the lounge wall, right of the clock.
+    var whiteboard: CGRect { CGRect(x: lounge.minX + 17, y: 3, width: 44, height: 22) }
     var beanbag: CGRect { CGRect(x: lounge.minX + 4, y: lounge.minY + 60, width: 20, height: 12) }
 
     /// Feet of someone resting there; seats put the feet at the front edge so the back rests against the backrest.
@@ -537,6 +539,7 @@ final class OfficeSimulation: ObservableObject {
         for wx in L.windows { OfficeArt.window(p, wx, 6) }
         // Above the coffee machine, where the sofa sitters' bubbles don't cover it.
         OfficeArt.clock(p, L.lounge.minX + 3, 10)
+        OfficeArt.whiteboard(p, L.whiteboard, busyByHour: DailyStats.shared.today.busyByHour)
 
         for z in L.zones {
             OfficeArt.rug(p, CGRect(x: z.rect.minX, y: z.rect.minY + 22, width: z.rect.width, height: 50),

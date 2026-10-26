@@ -66,6 +66,15 @@ struct AlertSettings: Codable {
     var callAfterSeconds: Double = 60
 }
 
+/// When the end-of-day summary opens by itself.
+struct SummarySettings: Codable {
+    var autoShow = true
+    /// Not before this hour (local time).
+    var afterHour = 18
+    /// After every agent has been idle this long.
+    var quietMinutes: Double = 20
+}
+
 struct ProjectSettings: Codable, Equatable {
     var name: String?
     var colorHex: String?
@@ -95,6 +104,7 @@ struct AppSettings: Codable {
     var office = OfficeSettings()
     var permissions = PermissionSettings()
     var alerts = AlertSettings()
+    var summary = SummarySettings()
     var projects: [String: ProjectSettings] = [:]
     var accounts: [String: AccountSettings] = [:]
     var sessions: [String: SessionOverride] = [:]

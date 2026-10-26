@@ -23,6 +23,7 @@ enum DebugRender {
         renderView(AgentEditView(title: "콩이", subtitle: "dotdesk · Claude Code", name: "", namePlaceholder: "콩이",
                                  ref: "builtin:2", autoRef: "builtin:0", shirt: RGBA(0x4dabf7), save: { _, _ in }, cancel: {}),
                    width: 460, to: out.appendingPathComponent("agent-edit.png"))
+        renderSummary(to: out)
         renderOffice(to: out)
         renderPetRests(to: out)
         for tab in SettingsTab.allCases {
@@ -38,6 +39,32 @@ enum DebugRender {
                 try? rep.representation(using: .png, properties: [:])?.write(to: out.appendingPathComponent("settings-\(tab.rawValue).png"))
             }
         }
+    }
+
+    /// The daily summary with a made-up day and week; the office renders after it pick up the whiteboard chart.
+    private static func renderSummary(to out: URL) {
+        var t = DayStats(day: DailyStats.key(Date()))
+        t.prompts = 42; t.turnsDone = 38; t.longTasks = 2; t.toolCalls = 512
+        t.files = Set((0..<23).map { "/tmp/f\($0).swift" })
+        t.testsPassed = 7; t.testsFailed = 2; t.outputTokens = 186_000
+        for (h, m) in [(9, 20), (10, 55), (11, 40), (13, 30), (14, 60), (15, 48), (16, 25), (17, 10)] { t.busyByHour[h] = Double(m * 60) }
+        let hour = Calendar.current.component(.hour, from: Date())
+        for back in 0..<6 { t.busyByHour[(hour - back + 24) % 24] = Double((60 - back * 8) * 60) }
+        t.busySeconds = t.busyByHour.reduce(0, +)
+        t.agentSeconds = t.busySeconds * 1.6
+        t.projectSeconds = ["/Users/me/dotdesk": t.agentSeconds * 0.6, "/Users/me/api-server": t.agentSeconds * 0.3, "/Users/me/blog": t.agentSeconds * 0.1]
+        for (i, (name, project)) in [("도토리", "/Users/me/dotdesk"), ("모찌", "/Users/me/dotdesk"), ("콩이", "/Users/me/api-server"), ("보리", "/Users/me/blog")].enumerated() {
+            t.crew["w\(i)"] = CrewMember(name: name, character: BuiltinCharacters.mixRef(UInt64(i * 7919 + 13)), projectKey: project)
+        }
+        let cal = Calendar.current
+        let history = (1..<7).reversed().compactMap { back -> DayStats? in
+            guard let date = cal.date(byAdding: .day, value: -back, to: Date()), back != 3 else { return nil }
+            var d = DayStats(day: DailyStats.key(date))
+            d.prompts = 10 * back; d.busySeconds = Double([0, 7200, 16000, 0, 9000, 21000, 4000][back]); d.turnsDone = 8
+            return d
+        }
+        DailyStats.shared.usePreview(today: t, history: history)
+        renderView(DailySummaryView(), width: 460, to: out.appendingPathComponent("summary.png"))
     }
 
     /// Welcome window and empty office, before and after the hooks are installed.

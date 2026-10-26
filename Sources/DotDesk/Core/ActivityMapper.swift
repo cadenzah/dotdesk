@@ -119,6 +119,24 @@ enum ActivityMapper {
         return ""
     }
 
+    /// Files a tool call writes to: the path for edit tools, every file named in an apply_patch.
+    static func editedFiles(tool: String, input: [String: Any]) -> [String] {
+        switch tool {
+        case "Edit", "Write", "MultiEdit", "NotebookEdit", "str_replace_editor":
+            return [input["file_path"] as? String ?? input["notebook_path"] as? String ?? input["path"] as? String].compactMap { $0 }
+        case "apply_patch":
+            let patch = input["command"] as? String ?? input["input"] as? String ?? ""
+            return patch.split(separator: "\n").compactMap { line in
+                for marker in ["*** Update File: ", "*** Add File: ", "*** Delete File: "] where line.hasPrefix(marker) {
+                    return String(line.dropFirst(marker.count)).trimmingCharacters(in: .whitespaces)
+                }
+                return nil
+            }
+        default:
+            return []
+        }
+    }
+
     static func shellCommand(tool: String, input: [String: Any]) -> String? {
         if let c = input["command"] as? String { return c }
         if let c = input["cmd"] as? String { return c }

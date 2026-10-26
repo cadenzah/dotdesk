@@ -88,6 +88,17 @@ struct GeneralTab: View {
                 Text("대화 기록 파일에서 마지막 응답의 토큰 수를 읽어요. 자동은 모델 이름에 [1m]이 있거나 20만 토큰을 넘긴 적이 있으면 1M으로 봐요. 80%를 넘으면 캐릭터가 땀을 흘리고, 대화를 정리하는 동안에는 상자에 짐을 싸요.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section("하루 기록") {
+                Toggle("퇴근할 때 오늘의 기록 띄우기", isOn: $settings.s.summary.autoShow)
+                if settings.s.summary.autoShow {
+                    Stepper("\(settings.s.summary.afterHour)시가 지나고", value: $settings.s.summary.afterHour, in: 12...23)
+                    Stepper("모든 에이전트가 \(Int(settings.s.summary.quietMinutes))분 동안 쉬면",
+                            value: $settings.s.summary.quietMinutes, in: 5...120, step: 5)
+                }
+                Button("오늘의 기록 보기") { AppDelegate.shared?.showSummary() }
+                Text("하루에 한 번만 떠요. 메뉴바나 사무실 화이트보드를 눌러도 볼 수 있어요.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("시간") {
                 Stepper("\(Int(settings.s.sleepAfterMinutes))분 동안 소식이 없으면 잠들기", value: $settings.s.sleepAfterMinutes, in: 1...60)
                 Stepper("\(Int(settings.s.forgetAfterMinutes / 60))시간 동안 소식이 없으면 퇴근", value: $settings.s.forgetAfterMinutes, in: 60...1440, step: 60)

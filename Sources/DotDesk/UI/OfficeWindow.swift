@@ -103,6 +103,8 @@ struct OfficeView: View {
                         .offset(x: ox + z.rect.minX * scale, y: oy + (z.rect.minY + 3) * scale)
                         .allowsHitTesting(false)
                 }
+                WhiteboardLabel(rect: sim.layout.whiteboard, scale: scale)
+                    .offset(x: ox + sim.layout.whiteboard.minX * scale, y: oy + sim.layout.whiteboard.minY * scale)
                 ForEach(sim.hits) { h in
                     if let s = store.session(h.sessionKey) {
                         Color.clear
@@ -165,6 +167,33 @@ struct OfficeView: View {
             }
         }
         .ignoresSafeArea()
+    }
+}
+
+/// Today's busy time written on the lounge whiteboard; click it for the day's summary.
+struct WhiteboardLabel: View {
+    let rect: CGRect
+    let scale: CGFloat
+    @ObservedObject private var stats = DailyStats.shared
+
+    var body: some View {
+        let d = stats.today
+        ZStack(alignment: .topLeading) {
+            Color.clear.contentShape(Rectangle())
+            if scale >= 2.5 {
+                Text(d.busySeconds > 0 ? "오늘 \(formatDuration(d.busySeconds))" : "오늘")
+                    .font(.system(size: 3.6 * scale, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.25))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .padding(.leading, 3 * scale)
+                    .padding(.top, 1.5 * scale)
+                    .frame(width: rect.width * scale, alignment: .leading)
+            }
+        }
+        .frame(width: rect.width * scale, height: rect.height * scale)
+        .help("오늘 \(formatDuration(d.busySeconds)) 일했어요 · 요청 \(d.prompts) · 고친 파일 \(d.files.count) · 테스트 통과 \(d.testsPassed)\n눌러서 오늘의 기록 보기")
+        .onTapGesture { AppDelegate.shared?.showSummary() }
     }
 }
 
