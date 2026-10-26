@@ -19,7 +19,7 @@ enum Activity: String, Codable {
 
     var label: String {
         switch self {
-        case .idle: return "쉬는 중"
+        case .idle: return "대기 중"
         case .thinking: return "생각 중"
         case .reading: return "읽는 중"
         case .searching: return "찾는 중"
@@ -32,7 +32,7 @@ enum Activity: String, Codable {
         case .waitingPermission: return "허락을 기다려요"
         case .waitingInput: return "질문이 있어요"
         case .done: return "완료!"
-        case .sleeping: return "자는 중"
+        case .sleeping: return "쉬는 중"
         case .leaving: return "퇴근 중"
         }
     }

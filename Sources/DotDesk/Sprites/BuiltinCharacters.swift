@@ -344,7 +344,7 @@ enum BuiltinCharacters {
 }
 
 /// Tiny deterministic generator, so a seed maps to the same look on every launch and Swift version.
-private struct SplitMix64 {
+struct SplitMix64: RandomNumberGenerator {
     private var state: UInt64
     init(_ seed: UInt64) { state = seed }
 

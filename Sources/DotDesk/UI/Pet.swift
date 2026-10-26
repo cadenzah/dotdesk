@@ -31,6 +31,10 @@ final class PetController: NSObject {
     private var dragging = false
     private var lastActivityKey = ""
     private var speechUntil = Date.distantPast
+    /// What the pet does while its agent rests, and until when.
+    private var restPlan: (pastime: OfficeSimulation.Pastime, until: Date)?
+    /// The pet has no furniture, so only pastimes that need none.
+    private static let pastimes: [OfficeSimulation.Pastime] = [.nap, .coffee, .game, .read, .stretch]
     private let store = SessionStore.shared
     private let settings = SettingsStore.shared
     private let sprites = SpriteLibrary.shared
@@ -104,6 +108,15 @@ final class PetController: NSObject {
         }
         let activity = s?.activity ?? .sleeping
         model.sessionKey = s?.id
+        if activity == .sleeping, s != nil {
+            if restPlan.map({ Date() >= $0.until }) ?? true {
+                let next = Self.pastimes.filter { $0 != restPlan?.pastime }.randomElement() ?? .nap
+                restPlan = (next, Date().addingTimeInterval(next == .nap ? .random(in: 60...150) : .random(in: 20...50)))
+            }
+        } else {
+            restPlan = nil
+        }
+        let pastime = restPlan?.pastime
         model.permissions = store.permissions.filter { $0.sessionKey == s?.id }
 
         // Speech bubble: show briefly after each change, and keep it while the agent needs the user.
@@ -114,7 +127,7 @@ final class PetController: NSObject {
         }
         if let s {
             let nick = store.nickname(s)
-            model.title = "\(nick) · \(activity.label)"
+            model.title = "\(nick) · \(pastime?.label() ?? activity.label)"
             var parts: [String] = []
             if !s.detail.isEmpty { parts.append(s.detail) }
             parts.append(settings.projectName(s.projectKey))
@@ -155,9 +168,14 @@ final class PetController: NSObject {
         let shirt = s.map { settings.projectColor($0.projectKey) } ?? RGBA(0x868e96)
         let skin = sprites.skin(for: ref, shirt: shirt)
         var pose: Pose = walking ? .walk : activity.pose
+        var facing: Facing = walking ? (dir > 0 ? .right : .left) : .down
+        if !walking, let (p, f) = pastime?.pose(skin, tick: tick / 2) {
+            pose = p
+            if let f { facing = f }
+        }
         if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
-        let facing: Facing = walking ? (dir > 0 ? .right : .left) : .down
         let (img, flip) = skin.frame(facing: facing, pose: pose, tick: tick / 2)
+        let icon = pastime?.icon ?? activity.icon
 
         var bounce: CGFloat = 0
         if activity == .done { bounce = (tick / 3) % 4 < 2 ? -3 : 0 }
@@ -170,8 +188,9 @@ final class PetController: NSObject {
             let rest = CGRect(x: 12, y: 18, width: 16, height: 32)
             let r = rest.offsetBy(dx: 0, dy: bounce)
             p.image(img, r.minX, r.minY, flipX: flip)
+            if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: true, tick: tick / 2) }
             // Anchor the bubble to the resting position so it doesn't bob along with the sprite.
-            if let icon = activity.icon, !walking { p.image(icon.bubble, rest.midX - 1, rest.minY - 6) }
+            if let icon, !walking { p.image(icon.bubble, rest.midX - 1, rest.minY - 6) }
             model.frame = p.makeImage()
             model.displayScale = scale
         } else {
@@ -183,8 +202,9 @@ final class PetController: NSObject {
             let rest = CGRect(x: (CGFloat(cw) - w) / 2, y: CGFloat(ch) - 4 - h, width: w, height: h)
             let r = rest.offsetBy(dx: 0, dy: bounce * 2)
             p.image(img, r.minX, r.minY, w, h, flipX: flip)
+            if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: false, tick: tick / 2) }
             // Anchor the bubble to the resting position so it doesn't bob along with the sprite.
-            if let icon = activity.icon, !walking { p.image(icon.bubble, rest.midX + 4, max(0, rest.minY - 14), 30, 28) }
+            if let icon, !walking { p.image(icon.bubble, rest.midX + 4, max(0, rest.minY - 14), 30, 28) }
             model.frame = p.makeImage()
             model.displayScale = scale * Self.canvas.width / CGFloat(cw)
         }

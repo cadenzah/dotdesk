@@ -24,6 +24,7 @@ enum DebugRender {
                                  ref: "builtin:2", autoRef: "builtin:0", shirt: RGBA(0x4dabf7), save: { _, _ in }, cancel: {}),
                    width: 460, to: out.appendingPathComponent("agent-edit.png"))
         renderOffice(to: out)
+        renderPetRests(to: out)
         for tab in SettingsTab.allCases {
             SettingsNavigation.shared.tab = tab
             let host = NSHostingView(rootView: SettingsView())
@@ -72,13 +73,13 @@ enum DebugRender {
         let store = SessionStore.shared
         let settings = SettingsStore.shared
         store.toggleDemo()
-        let sim = OfficeSimulation()
+        let sim = OfficeSimulation(seed: 7)
         for k in 0..<4 {
             store.demoStep()
             sim.advance(160)
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(k).png")) }
         }
-        // Lounge: one sleeper up to four (the last one naps at their desk), with a frame mid-walk and one settled.
+        // Lounge: one sleeper up to four picking random spots, with a frame mid-walk and one settled.
         for (name, keys) in [("lounge-1", ["claude:demo-1"]), ("lounge-2", ["claude:demo-1", "claude:demo-2"]),
                              ("lounge-3", ["claude:demo-1", "claude:demo-2", "codex:demo-3"]),
                              ("lounge-4", ["claude:demo-1", "claude:demo-2", "codex:demo-3", "claude:demo-4"])] {
@@ -90,6 +91,37 @@ enum DebugRender {
             sim.advance(160)
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(name).png")) }
         }
+        // Every pastime at least once, four sleepers per scene; rest-a again a moment later for the other stretch frame.
+        let keys = ["claude:demo-1", "claude:demo-2", "codex:demo-3", "claude:demo-4"]
+        let scenes: [(String, [(OfficeLayout.RestSpot, OfficeSimulation.Pastime)])] = [
+            ("rest-a", [(.coffee, .coffee), (.plant, .water), (.window(0), .gaze), (.stretch, .stretch)]),
+            ("rest-b", [(.sofa(0), .game), (.sofa(1), .nap), (.beanbag, .read), (.desk, .nap)]),
+            ("rest-c", [(.sofa(0), .nap), (.beanbag, .nap), (.chat(1, 0), .chat), (.chat(1, 1), .chat)]),
+        ]
+        for (name, spots) in scenes {
+            store.demoStep()
+            sim.advance(160)
+            store.demoSleep(keys)
+            for (key, (spot, pastime)) in zip(keys, spots) { sim.debugRest(key, spot, pastime) }
+            sim.advance(160)
+            if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(name).png")) }
+            if name == "rest-a" {
+                sim.advance(10)
+                if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(name)-2.png")) }
+            }
+        }
+        // Two rows of desks, so the lounge is tall enough for the bookshelf.
+        store.demoExtra(true)
+        store.demoStep()
+        sim.advance(160)
+        store.demoSleep(keys + ["claude:demo-5"])
+        for (key, (spot, pastime)) in zip(keys + ["claude:demo-5"], [(OfficeLayout.RestSpot.bookshelf, OfficeSimulation.Pastime.browse),
+                                                                     (.stretch, .stretch), (.coffee, .coffee), (.plant, .water), (.beanbag, .read)]) {
+            sim.debugRest(key, spot, pastime)
+        }
+        sim.advance(200)
+        if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-rest-tall.png")) }
+        store.demoExtra(false)
         // Same scene with other character sources.
         let paRefs = ["pa:0", "pa:3", "pa:5"], pokeRefs = SpriteLibrary.shared.pokemon.prefix(3).map { "poke:\($0.id)" }
         for (name, refs) in [("pa", paRefs), ("poke", Array(pokeRefs))] where !refs.isEmpty {
@@ -110,6 +142,18 @@ enum DebugRender {
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-lounge-\(name).png")) }
         }
         settings.s.sessions = [:]
+    }
+
+    /// The desktop pet while its agent rests, several times over so the random pastimes show up.
+    private static func renderPetRests(to out: URL) {
+        SessionStore.shared.demoSleep(["claude:demo-1"])
+        for i in 0..<8 {
+            let pet = PetController(pinnedSession: "claude:demo-1")
+            pet.show()
+            pet.close()
+            print("pet-rest-\(i):", pet.model.title)
+            if let f = pet.model.frame { write(f, scale: 6, to: out.appendingPathComponent("pet-rest-\(i).png")) }
+        }
     }
 
     /// 1024px app icon: the default character in front of a monitor.

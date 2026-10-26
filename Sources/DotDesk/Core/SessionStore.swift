@@ -341,6 +341,16 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// Adds or removes a fifth demo agent, which pushes the desks into a second row (used by --render-preview).
+    func demoExtra(_ on: Bool) {
+        let key = "claude:demo-5", cwd = "/tmp/dotdesk-demo/docs"
+        guard on else { sessions.removeValue(forKey: key); return }
+        var s = makeSession(key: key, provider: .claude, sessionId: "demo-5", cwd: nil)
+        s.cwd = cwd
+        s.projectKey = cwd
+        sessions[key] = s
+    }
+
     private var demoStepIndex = 0
 
     func demoStep() {

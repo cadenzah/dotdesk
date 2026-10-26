@@ -27,9 +27,9 @@ struct OfficeLayout {
         func exit(_ x: CGFloat) -> CGPoint { CGPoint(x: x, y: exitUp ? padded.minY - 2 : padded.maxY + 2) }
     }
 
-    /// Where a resting agent goes. Lounge spots fill in this order; once they are taken the rest nap at their own desk.
-    enum RestSpot: Hashable { case sofa(Int), beanbag, desk }
-    static let loungeSpots: [RestSpot] = [.sofa(0), .sofa(1), .beanbag]
+    /// Where a resting agent goes. Each spot holds one agent, except everyone's own desk.
+    /// `chat(window, side)` is a pair of spots at a window where two agents stand and talk.
+    enum RestSpot: Hashable { case sofa(Int), beanbag, desk, coffee, plant, window(Int), chat(Int, Int), stretch, bookshelf }
 
     var size = CGSize(width: 240, height: 124)
     var seats: [String: Seat] = [:]
@@ -38,9 +38,19 @@ struct OfficeLayout {
     var lounge = CGRect.zero
     var door = CGPoint.zero
     var corridorY: CGFloat = 0
+    /// Left edges of the windows on the office wall.
+    var windows: [CGFloat] = []
+
+    var hasBookshelf: Bool { lounge.height > 90 }
+
+    /// Rest spots grouped by kind, so a wide office with many windows doesn't make window-gazing the usual pick.
+    var restKinds: [[RestSpot]] {
+        [[.sofa(0), .sofa(1)], [.beanbag], [.desk], [.coffee], [.plant], windows.indices.map { .window($0) },
+         windows.indices.map { .chat($0, 0) }, [.stretch]] + (hasBookshelf ? [[.bookshelf]] : [])
+    }
 
     var sofa: CGRect { CGRect(x: lounge.minX + 16, y: lounge.minY + 6, width: 32, height: 16) }
-    var beanbag: CGRect { CGRect(x: lounge.minX + 22, y: lounge.minY + 52, width: 20, height: 12) }
+    var beanbag: CGRect { CGRect(x: lounge.minX + 4, y: lounge.minY + 60, width: 20, height: 12) }
 
     /// Feet of someone resting there; seats put the feet at the front edge so the back rests against the backrest.
     func restFeet(_ spot: RestSpot, sessionKey: String) -> CGPoint? {
@@ -48,6 +58,22 @@ struct OfficeLayout {
         case .sofa(let i): return CGPoint(x: sofa.minX + 8 + CGFloat(i) * 16, y: sofa.maxY)
         case .beanbag: return CGPoint(x: beanbag.midX, y: beanbag.maxY - 1)
         case .desk: return seats[sessionKey]?.feet
+        case .coffee: return CGPoint(x: lounge.minX + 9, y: lounge.minY + 44)
+        case .plant: return CGPoint(x: lounge.minX + 38, y: lounge.minY + 46)
+        case .window(let i): return i < windows.count ? CGPoint(x: windows[i] + 13, y: OfficeLayout.wallH + 10) : nil
+        case .chat(let i, let side): return i < windows.count ? CGPoint(x: windows[i] + 5 + CGFloat(side) * 16, y: OfficeLayout.wallH + 10) : nil
+        case .stretch: return CGPoint(x: lounge.minX + 54, y: lounge.maxY - 10)
+        case .bookshelf: return hasBookshelf ? CGPoint(x: lounge.minX + 28, y: lounge.maxY - 4) : nil
+        }
+    }
+
+    /// Which way someone faces once they reach the spot.
+    static func restFacing(_ spot: RestSpot) -> Facing {
+        switch spot {
+        case .window, .coffee: return .up
+        case .plant, .chat(_, 0): return .right
+        case .bookshelf, .chat: return .left
+        default: return .down
         }
     }
 
@@ -99,13 +125,15 @@ struct OfficeLayout {
         L.lounge = CGRect(x: margin + innerW + margin, y: wallH + 4, width: loungeW, height: h - wallH - 8)
         L.door = CGPoint(x: margin + 13, y: wallH + 6)
         L.corridorY = wallH + 8
+        var wx: CGFloat = 40
+        while wx + 26 < L.lounge.minX - 8 { L.windows.append(wx); wx += 56 }
         // Floor footprints of the lounge furniture drawn in `OfficeSimulation.render`.
         let lx = L.lounge.minX, ly = L.lounge.minY
         L.obstacles.append(Obstacle(rect: L.sofa, exitUp: false))
         L.obstacles.append(Obstacle(rect: L.beanbag, exitUp: false))
-        L.obstacles.append(Obstacle(rect: CGRect(x: lx + 4, y: ly + 24, width: 12, height: 16), exitUp: false))
+        L.obstacles.append(Obstacle(rect: CGRect(x: lx + 2, y: ly + 8, width: 12, height: 16), exitUp: false))
         L.obstacles.append(Obstacle(rect: CGRect(x: lx + 46, y: ly + 30, width: 16, height: 14), exitUp: false))
-        if L.lounge.height > 90 {
+        if L.hasBookshelf {
             L.obstacles.append(Obstacle(rect: CGRect(x: lx + 4, y: L.lounge.maxY - 12, width: 16, height: 12), exitUp: false))
         }
         return L
@@ -113,13 +141,13 @@ struct OfficeLayout {
 
     // MARK: Walking routes
 
-    /// Corner points from `start` to `end` that go around desks and furniture through the aisles.
-    func route(from start: CGPoint, to end: CGPoint) -> [CGPoint] {
+    /// Corner points from `start` to `end` that go around desks and furniture through the aisles, and around `avoiding`.
+    func route(from start: CGPoint, to end: CGPoint, avoiding: [CGRect] = []) -> [CGPoint] {
         var head: [CGPoint] = [], tail = [end]
         var a = start, b = end
         if let o = obstacles.first(where: { $0.padded.contains(start) }) { a = o.exit(start.x); head = [a] }
         if let o = obstacles.first(where: { $0.padded.contains(end) }) { b = o.exit(end.x); tail = [b, end] }
-        guard let mid = gridPath(from: a, to: b) else {
+        guard let mid = gridPath(from: a, to: b, avoiding: avoiding) else {
             if abs(start.y - end.y) < 2 { return [end] }
             return [CGPoint(x: start.x, y: corridorY), CGPoint(x: end.x, y: corridorY), end]
         }
@@ -136,10 +164,10 @@ struct OfficeLayout {
     }
 
     /// A* over a 4px grid of free floor, with a cost per turn so paths stay on a few straight lines.
-    private func gridPath(from a: CGPoint, to b: CGPoint) -> [CGPoint]? {
+    private func gridPath(from a: CGPoint, to b: CGPoint, avoiding: [CGRect]) -> [CGPoint]? {
         let g: CGFloat = 4
         let cols = Int(size.width / g) + 1, rows = Int(size.height / g) + 1
-        let blocked = obstacles.map(\.padded)
+        let blocked = obstacles.map(\.padded) + avoiding
         var free = [Bool](repeating: false, count: cols * rows)
         for j in 0..<rows {
             for i in 0..<cols {
@@ -254,6 +282,79 @@ private struct MinHeap {
 final class OfficeSimulation: ObservableObject {
     enum Goal: Equatable { case seat, rest(OfficeLayout.RestSpot), door, helper(Int) }
 
+    /// What a resting agent does at their spot; decides the pose, what they hold, the bubble and the tooltip.
+    enum Pastime {
+        case nap, game, read, coffee, water, gaze, chat, stretch, browse
+
+        static func choices(at spot: OfficeLayout.RestSpot) -> [Pastime] {
+            switch spot {
+            case .sofa: return [.nap, .game]
+            case .beanbag: return [.nap, .read]
+            case .desk: return [.nap]
+            case .coffee: return [.coffee]
+            case .plant: return [.water]
+            case .window: return [.gaze]
+            case .chat: return [.chat]
+            case .stretch: return [.stretch]
+            case .bookshelf: return [.browse]
+            }
+        }
+
+        var icon: PixelIcon {
+            switch self {
+            case .nap: return .zzz
+            case .game: return .game
+            case .read, .browse: return .book
+            case .coffee: return .coffee
+            case .water: return .droplet
+            case .gaze: return OfficeArt.skyColor().1 ? .moon : .sun
+            case .chat: return .talk
+            case .stretch: return .sparkle
+            }
+        }
+
+        /// `spot` is nil for the desktop pet, which has no furniture.
+        func label(at spot: OfficeLayout.RestSpot? = nil) -> String {
+            switch (self, spot) {
+            case (.nap, .sofa?): return "소파에서 낮잠 자는 중"
+            case (.nap, .beanbag?): return "빈백에서 조는 중"
+            case (.nap, .desk?): return "책상에 엎드려 자는 중"
+            case (.nap, _): return "꾸벅꾸벅 조는 중"
+            case (.game, nil): return "게임하는 중"
+            case (.game, _): return "소파에서 게임하는 중"
+            case (.read, nil): return "책 읽는 중"
+            case (.read, _): return "빈백에서 책 읽는 중"
+            case (.coffee, _): return "커피 마시는 중"
+            case (.water, _): return "화분에 물 주는 중"
+            case (.gaze, _): return "창밖 구경하는 중"
+            case (.chat, _): return "창가에서 수다 떠는 중"
+            case (.stretch, _): return "스트레칭하는 중"
+            case (.browse, _): return "책장에서 책 고르는 중"
+            }
+        }
+
+        /// Pose, plus a facing while stretching. Nil for naps, whose pose depends on where they sleep.
+        func pose(_ skin: CharacterSkin, tick: Int) -> (Pose, Facing?)? {
+            switch self {
+            case .nap: return nil
+            case .game: return (.type, nil)
+            case .read: return (.read, nil)
+            case .stretch:
+                // Arms up and down, or a twist from side to side for sheets without that frame.
+                let phase = tick / 10 % 4
+                return skin.hasCheerFrame ? (phase % 2 == 0 ? .stand : .cheer, nil) : (.stand, [Facing.down, .left, .down, .right][phase])
+            default: return (.stand, nil)
+            }
+        }
+    }
+
+    struct Rest {
+        let spot: OfficeLayout.RestSpot
+        let pastime: Pastime
+        /// Tick at which the agent gets up and picks something else.
+        let until: Int
+    }
+
     struct Actor {
         let id: String
         let sessionKey: String
@@ -263,6 +364,8 @@ final class OfficeSimulation: ObservableObject {
         var routeEnd: CGPoint?
         var facing: Facing = .down
         var goal: Goal = .seat
+        /// Ticks since they last stopped walking.
+        var still = 0
         var walking: Bool { !route.isEmpty }
     }
 
@@ -271,6 +374,8 @@ final class OfficeSimulation: ObservableObject {
         let sessionKey: String
         let rect: CGRect
         let nameAnchor: CGPoint
+        /// What a resting agent is up to, shown instead of the session's activity.
+        var label: String?
     }
 
     @Published private(set) var frame: CGImage?
@@ -278,12 +383,20 @@ final class OfficeSimulation: ObservableObject {
     @Published private(set) var hits: [Hit] = []
 
     private var actors: [String: Actor] = [:]
-    private var restSpots: [String: OfficeLayout.RestSpot] = [:]
+    private var rests: [String: Rest] = [:]
+    /// Who was standing at a window when routes were last planned.
+    private var lastGazers: Set<String> = []
+    private var rng: SplitMix64
     private var tick = 0
     private var timer: Timer?
     private let store = SessionStore.shared
     private let settings = SettingsStore.shared
     private let sprites = SpriteLibrary.shared
+
+    /// A fixed seed makes rest choices repeatable (used by --render-preview).
+    init(seed: UInt64 = .random(in: 0 ... .max)) {
+        rng = SplitMix64(seed)
+    }
 
     func start() {
         guard timer == nil else { return }
@@ -301,17 +414,22 @@ final class OfficeSimulation: ObservableObject {
     /// Runs the simulation without a timer (used by --render-preview).
     func advance(_ n: Int) { for _ in 0..<n { step() } }
 
+    /// Sends a sleeping agent to a given spot for good (used by --render-preview).
+    func debugRest(_ key: String, _ spot: OfficeLayout.RestSpot, _ pastime: Pastime) {
+        rests[key] = Rest(spot: spot, pastime: pastime, until: .max)
+    }
+
     private func step() {
         tick += 1
         let sessions = store.activeSessions
         let L = OfficeLayout.make(sessions: sessions, projectName: settings.projectName)
         let byKey = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
 
-        // Resting agents keep their spot until they wake; a new one takes the first free lounge spot or naps at their desk.
-        restSpots = restSpots.filter { byKey[$0.key]?.activity == .sleeping }
-        for s in sessions where s.activity == .sleeping && restSpots[s.id] == nil {
-            let taken = Set(restSpots.values)
-            restSpots[s.id] = OfficeLayout.loungeSpots.first { !taken.contains($0) } ?? .desk
+        // Resting agents do something random at a free spot, then move on to something else when it's time.
+        rests = rests.filter { byKey[$0.key]?.activity == .sleeping }
+        for s in sessions where s.activity == .sleeping {
+            if let r = rests[s.id], r.until > tick, stillThere(r, key: s.id, in: L) { continue }
+            pickRest(for: s.id, in: L)
         }
 
         // Spawn / retarget actors
@@ -321,7 +439,7 @@ final class OfficeSimulation: ObservableObject {
             if actors[s.id] == nil { actors[s.id] = Actor(id: s.id, sessionKey: s.id, subId: nil, pos: L.door) }
             let goal: Goal
             if s.activity == .leaving { goal = .door }
-            else if let spot = restSpots[s.id] { goal = .rest(spot) }
+            else if let r = rests[s.id] { goal = .rest(r.spot) }
             else { goal = .seat }
             actors[s.id]?.goal = goal
             for (i, sub) in s.subagents.prefix(3).enumerated() where s.activity != .sleeping && s.activity != .leaving {
@@ -338,6 +456,19 @@ final class OfficeSimulation: ObservableObject {
             }
         }
 
+        // People at a window (gazing or chatting) stand in the corridor; everyone else walks around them, re-planning when that changes.
+        var gazers: [String: CGRect] = [:]
+        for a in actors.values where !a.walking {
+            switch a.goal {
+            case .rest(.window), .rest(.chat): gazers[a.id] = CGRect(x: a.pos.x - 6, y: a.pos.y - 6, width: 12, height: 12)
+            default: break
+            }
+        }
+        if Set(gazers.keys) != lastGazers {
+            lastGazers = Set(gazers.keys)
+            for id in Array(actors.keys) where actors[id]?.walking == true { actors[id]?.routeEnd = nil }
+        }
+
         // Move
         for id in Array(actors.keys) {
             guard var a = actors[id] else { continue }
@@ -350,7 +481,7 @@ final class OfficeSimulation: ObservableObject {
             }
             if a.routeEnd.map({ hypot($0.x - target.x, $0.y - target.y) > 0.5 }) ?? true {
                 a.routeEnd = target
-                a.route = L.route(from: a.pos, to: target)
+                a.route = L.route(from: a.pos, to: target, avoiding: gazers.filter { $0.key != id }.map(\.value))
             }
             var budget: CGFloat = 2.6
             while budget > 0, let next = a.route.first {
@@ -367,8 +498,13 @@ final class OfficeSimulation: ObservableObject {
                     budget = 0
                 }
             }
+            a.still = a.walking ? 0 : a.still + 1
             if !a.walking {
-                if case .helper = a.goal { a.facing = .up } else { a.facing = .down }
+                switch a.goal {
+                case .helper: a.facing = .up
+                case .rest(let spot): a.facing = OfficeLayout.restFacing(spot)
+                default: a.facing = .down
+                }
             }
             actors[id] = a
             if a.goal == .door, !a.walking, !wanted.contains(id) { actors.removeValue(forKey: id) }
@@ -376,6 +512,49 @@ final class OfficeSimulation: ObservableObject {
 
         layout = L
         frame = render(L, byKey)
+    }
+
+    /// The spot still exists in this layout, and a chat still has someone on the other side.
+    private func stillThere(_ r: Rest, key: String, in L: OfficeLayout) -> Bool {
+        guard L.restFeet(r.spot, sessionKey: key) != nil else { return false }
+        if case .chat(let i, let side) = r.spot { return rests.values.contains { $0.spot == .chat(i, 1 - side) } }
+        return true
+    }
+
+    /// Sends them to a random kind of rest with a free spot (other than the one they're leaving), with something to do there.
+    /// A chat at a window pulls in another resting agent as the other side.
+    private func pickRest(for key: String, in L: OfficeLayout) {
+        let current = rests[key]?.spot
+        let others = rests.filter { $0.key != key }
+        let taken = Set(others.map(\.value.spot))
+        // A window holds one gazer or one pair of chatters.
+        let busyWindows = Set(taken.compactMap { spot -> Int? in
+            switch spot {
+            case .window(let i), .chat(let i, _): return i
+            default: return nil
+            }
+        })
+        func free(_ spot: OfficeLayout.RestSpot) -> Bool {
+            switch spot {
+            case .desk: return true
+            case .window(let i): return !busyWindows.contains(i)
+            case .chat(let i, _): return !busyWindows.contains(i) && !others.isEmpty
+            default: return !taken.contains(spot)
+            }
+        }
+        let kinds = L.restKinds.map { $0.filter { $0 != current && free($0) } }.filter { !$0.isEmpty }
+        // Napping at the desk is the fallback, so it comes up less often than a trip to the lounge.
+        let weights = kinds.map { $0 == [.desk] ? 0.35 : 1 }
+        var roll = Double.random(in: 0..<weights.reduce(0, +), using: &rng)
+        let kind = kinds.indices.first { roll -= weights[$0]; return roll < 0 }.map { kinds[$0] }
+        let spot = kind?.randomElement(using: &rng) ?? .desk
+        let pastime = Pastime.choices(at: spot).randomElement(using: &rng) ?? .nap
+        // Naps last a while; everything else is a short break.
+        let seconds = pastime == .nap ? Int.random(in: 60...150, using: &rng) : Int.random(in: 20...50, using: &rng)
+        rests[key] = Rest(spot: spot, pastime: pastime, until: tick + seconds * 12)
+        if case .chat(let i, _) = spot, let partner = others.keys.randomElement(using: &rng) {
+            rests[partner] = Rest(spot: .chat(i, 1), pastime: .chat, until: tick + seconds * 12)
+        }
     }
 
     // MARK: Rendering
@@ -386,9 +565,9 @@ final class OfficeSimulation: ObservableObject {
         OfficeArt.floor(p, W, H, from: Int(OfficeLayout.wallH))
         OfficeArt.wall(p, width: W, height: Int(OfficeLayout.wallH))
         OfficeArt.door(p, OfficeLayout.margin + 4, 4)
-        var wx: CGFloat = 40
-        while wx + 26 < L.lounge.minX - 8 { OfficeArt.window(p, wx, 6); wx += 56 }
-        OfficeArt.clock(p, L.lounge.minX + 27, 10)
+        for wx in L.windows { OfficeArt.window(p, wx, 6) }
+        // Above the coffee machine, where the sofa sitters' bubbles don't cover it.
+        OfficeArt.clock(p, L.lounge.minX + 3, 10)
 
         for z in L.zones {
             OfficeArt.rug(p, CGRect(x: z.rect.minX, y: z.rect.minY + 22, width: z.rect.width, height: 50),
@@ -419,9 +598,9 @@ final class OfficeSimulation: ObservableObject {
         draws.append((beanbag.maxY, { OfficeArt.beanbag(p, beanbag.minX, beanbag.minY) }))
         // Someone alone on the sofa lies down; a second sleeper makes them sit up.
         let sofaCount = actors.values.filter { if case .rest(.sofa) = $0.goal { return true }; return false }.count
-        draws.append((ly + 40, { OfficeArt.coffee(p, lx + 4, ly + 24) }))
+        draws.append((ly + 24, { OfficeArt.coffee(p, lx + 2, ly + 8) }))
         draws.append((ly + 44, { OfficeArt.plant(p, lx + 46, ly + 28) }))
-        if L.lounge.height > 90 { draws.append((L.lounge.maxY, { OfficeArt.bookshelf(p, lx + 4, L.lounge.maxY - 34) })) }
+        if L.hasBookshelf { draws.append((L.lounge.maxY, { OfficeArt.bookshelf(p, lx + 4, L.lounge.maxY - 34) })) }
 
         for a in actors.values {
             guard let s = sessions[a.sessionKey] ?? store.session(a.sessionKey) else { continue }
@@ -429,16 +608,32 @@ final class OfficeSimulation: ObservableObject {
             let activity = sub?.activity ?? s.activity
             let ref = characterRef(for: s, subId: a.subId)
             let skin = sprites.skin(for: ref, shirt: settings.projectColor(s.projectKey))
+            let plan: Rest? = { if case .rest(let spot) = a.goal, let r = rests[a.sessionKey], r.spot == spot { return r }; return nil }()
+            let rest = a.walking ? nil : plan
             let napping = a.goal == .rest(.desk) && !a.walking
             let seated = (a.goal == .seat || napping) && !a.walking
-            let resting: Bool = { if case .rest = a.goal, !a.walking { return true }; return false }()
             let onSofa: Bool = { if case .rest(.sofa) = a.goal, !a.walking { return true }; return false }()
             let onBeanbag = a.goal == .rest(.beanbag) && !a.walking
-            let lying = onSofa && sofaCount == 1 && skin.isSheet
-            var pose: Pose = a.walking ? .walk : napping ? .nap : (onSofa || onBeanbag) ? .sit : activity.pose
+            let lying = onSofa && rest?.pastime == .nap && sofaCount == 1 && skin.isSheet
+            var facing = a.facing
+            var pose: Pose
+            if a.walking {
+                pose = .walk
+            } else if let rest {
+                if let (p, f) = rest.pastime.pose(skin, tick: tick) {
+                    pose = p
+                    if let f { facing = f }
+                } else {
+                    pose = napping ? .nap : .sit
+                }
+                // Brews at the machine for a few seconds, then turns around with the mug.
+                if rest.pastime == .coffee { facing = a.still < 48 ? .up : .down }
+            } else {
+                pose = activity.pose
+            }
             if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
-            if !seated && a.subId == nil && (pose == .type || pose == .read) { pose = .stand }
-            var (img, flip) = skin.frame(facing: a.facing, pose: pose, tick: tick)
+            if !seated && !onSofa && !onBeanbag && a.subId == nil && (pose == .type || pose == .read) { pose = .stand }
+            var (img, flip) = skin.frame(facing: facing, pose: pose, tick: tick)
             if lying, let r = skin.frame(facing: .down, pose: .sleep, tick: tick).0.rotatedLeft() { (img, flip) = (r, false) }
 
             var bounce: CGFloat = 0
@@ -462,10 +657,15 @@ final class OfficeSimulation: ObservableObject {
             }
             let z = seated ? (L.seats[a.sessionKey]?.cell.minY ?? 0) + 61
                 : onSofa ? sofa.maxY + 0.5 : onBeanbag ? beanbag.maxY + 0.5 : a.pos.y
-            draws.append((z, { p.image(img, rect.minX, rect.minY, rect.width, rect.height, flipX: flip, smooth: !skin.isSheet) }))
+            draws.append((z, {
+                p.image(img, rect.minX, rect.minY, rect.width, rect.height, flipX: flip, smooth: !skin.isSheet)
+                if let rest, facing != .up { OfficeArt.held(rest.pastime, p, rect, sheet: skin.isSheet, tick: self.tick) }
+            }))
 
             let headTop = lying ? rect.minY + 3 : skin.isSheet ? rect.minY + 7 : rect.minY
-            if !a.walking, let icon = (resting ? PixelIcon.zzz : activity.icon) {
+            // Chatters take turns talking.
+            let silent: Bool = { if let rest, case .chat(_, let side) = rest.spot { return tick / 24 % 2 != side }; return false }()
+            if !a.walking, !silent, let icon = rest?.pastime.icon ?? activity.icon {
                 // Bubbles stay at the resting position instead of bobbing with the sprite.
                 let bx = lying ? rect.minX + 8 : rect.midX - 2, by = headTop - 13 - bounce
                 bubbles.append({ p.image(icon.bubble, bx, by) })
@@ -474,7 +674,8 @@ final class OfficeSimulation: ObservableObject {
                 newHits.append(Hit(id: a.id, sessionKey: a.sessionKey,
                                    rect: CGRect(x: rect.minX - 2, y: headTop - 2, width: rect.width + 4, height: rect.maxY - headTop + 2),
                                    nameAnchor: seated ? CGPoint(x: (L.seats[a.sessionKey]?.cell.midX ?? a.pos.x), y: (L.seats[a.sessionKey]?.cell.minY ?? 0) + 70)
-                                       : CGPoint(x: a.pos.x, y: a.pos.y + 6)))
+                                       : CGPoint(x: a.pos.x, y: a.pos.y + 6),
+                                   label: plan.map { $0.pastime.label(at: $0.spot) }))
             }
         }
 

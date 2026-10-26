@@ -30,7 +30,7 @@ enum OfficeArt {
         p.fill(0, CGFloat(h - 2), CGFloat(w), 2, wallShadow)
     }
 
-    static func skyColor(_ date: Date = Date()) -> (RGBA, Bool) {
+    nonisolated static func skyColor(_ date: Date = Date()) -> (RGBA, Bool) {
         let hour = Calendar.current.component(.hour, from: date)
         switch hour {
         case 6..<17: return (RGBA(0x9ad1ff), false)
@@ -174,15 +174,54 @@ enum OfficeArt {
         p.fill(x + 4, y + 1, 4, 1, light); p.fill(x + 2, y + 3, 2, 2, light)
     }
 
+    /// Always hand-drawn: Pixel Agents' COFFEE is a cup meant for a table, and resting agents brew coffee here.
     static func coffee(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
-        if let img = SpriteLibrary.shared.furniture("COFFEE", "COFFEE.png") { p.image(img, x, y - CGFloat(img.height) + 16); return }
         p.fill(x, y - 8, 14, 24, RGBA(0x495057)); p.fill(x + 2, y - 6, 10, 6, RGBA(0x212529))
         p.fill(x + 4, y + 4, 6, 6, RGBA(0x868e96)); p.fill(x + 5, y + 6, 4, 4, RGBA(0xffffff))
         p.fill(x + 10, y - 5, 2, 2, RGBA(0x51cf66))
     }
 
+    // MARK: Things resting agents hold
+
+    /// What a resting agent holds: at the hands of a 16x32 sheet, or beside a free-form sprite.
+    static func held(_ pastime: OfficeSimulation.Pastime, _ p: PixelContext, _ r: CGRect, sheet: Bool, tick: Int) {
+        switch pastime {
+        case .coffee:
+            if sheet { mug(p, r.minX + 12, r.minY + 22, tick: tick) } else { mug(p, r.maxX - 1, r.maxY - 6, tick: tick) }
+        case .game:
+            if sheet { handheld(p, r.minX + 5, r.minY + 21, tick: tick) } else { handheld(p, r.midX - 3, r.maxY - 5, tick: tick) }
+        case .water:
+            if sheet { wateringCan(p, r.minX + 8, r.minY + 21, tick: tick) } else { wateringCan(p, r.maxX - 2, r.maxY - 10, tick: tick) }
+        default:
+            break
+        }
+    }
+
+    /// A mug held in the hand, with a wisp of steam drifting up.
+    static func mug(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, tick: Int) {
+        p.fill(x - 1, y - 1, 5, 5, Palette.outline); p.fill(x + 3, y, 2, 3, Palette.outline)
+        p.fill(x, y, 3, 3, RGBA(0xf8f9fa)); p.fill(x, y, 3, 1, RGBA(0x6b3e1f)); p.fill(x + 3, y + 1, 1, 1, RGBA(0xf8f9fa))
+        let s = tick / 4 % 3
+        p.fill(x + 1 + CGFloat(s % 2), y - 2 - CGFloat(s), 1, 1, RGBA(0xdee2e6))
+    }
+
+    /// A watering can tipped to the right, dripping from the spout.
+    static func wateringCan(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, tick: Int) {
+        let body = RGBA(0x40c057), dark = RGBA(0x2b8a3e)
+        p.fill(x, y, 5, 4, body); p.fill(x, y + 3, 5, 1, dark)
+        p.fill(x + 1, y - 1, 3, 1, dark)
+        p.fill(x + 5, y + 1, 1, 1, body); p.fill(x + 6, y, 1, 1, body); p.fill(x + 7, y - 1, 2, 1, dark)
+        for k in 0..<2 { p.fill(x + 8, y + 1 + CGFloat((tick / 2 + k * 3) % 6), 1, 1, RGBA(0x74c0fc)) }
+    }
+
+    /// A handheld game console whose screen flickers.
+    static func handheld(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, tick: Int) {
+        p.fill(x, y, 6, 4, RGBA(0x495057))
+        p.fill(x + 1, y + 1, 4, 2, tick / 6 % 2 == 0 ? RGBA(0x8ce99a) : RGBA(0x74c0fc))
+    }
+
+    /// Always hand-drawn: Pixel Agents' BOOKSHELF is low and wide, and resting agents browse it from the side.
     static func bookshelf(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
-        if let img = SpriteLibrary.shared.furniture("BOOKSHELF", "BOOKSHELF.png") { p.image(img, x, y - CGFloat(img.height) + 32); return }
         p.fill(x, y, 16, 32, woodFront); p.fill(x + 1, y + 1, 14, 30, woodDark)
         let colors = [RGBA(0xff6b6b), RGBA(0x4dabf7), RGBA(0xffd43b), RGBA(0x69db7c), RGBA(0xda77f2)]
         for shelf in 0..<3 {

@@ -109,11 +109,11 @@ struct OfficeView: View {
                             .contentShape(Rectangle())
                             .frame(width: h.rect.width * scale, height: h.rect.height * scale)
                             .offset(x: ox + h.rect.minX * scale, y: oy + h.rect.minY * scale)
-                            .help("\(store.nickname(s)) · \(s.activity.label)\(s.detail.isEmpty ? "" : " · \(s.detail)")")
+                            .help("\(store.nickname(s)) · \(h.label ?? s.activity.label)\(s.detail.isEmpty ? "" : " · \(s.detail)")")
                             .onTapGesture { selected = h.sessionKey }
                             .contextMenu { SessionMenu(session: s) }
                             .popover(isPresented: Binding(get: { selected == h.sessionKey }, set: { if !$0 { selected = nil } })) {
-                                SessionDetail(sessionKey: h.sessionKey)
+                                SessionDetail(sessionKey: h.sessionKey, restLabel: h.label)
                             }
                         Text(store.nickname(s))
                             .font(.system(size: max(8, 4.2 * scale), weight: .medium))
@@ -214,6 +214,8 @@ struct CharacterPickerMenu: View {
 
 struct SessionDetail: View {
     let sessionKey: String
+    /// What the agent is doing on their break, from the office scene.
+    var restLabel: String?
     @ObservedObject private var store = SessionStore.shared
     @ObservedObject private var settings = SettingsStore.shared
 
@@ -222,7 +224,7 @@ struct SessionDetail: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(store.nickname(s)).font(.headline)
-                    Text(s.activity.label).font(.caption).padding(.horizontal, 6).padding(.vertical, 2)
+                    Text(restLabel ?? s.activity.label).font(.caption).padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(Color.accentColor.opacity(0.15)))
                 }
                 Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
