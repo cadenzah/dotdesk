@@ -8,6 +8,8 @@ final class SessionStore: ObservableObject {
 
     @Published private(set) var sessions: [String: AgentSession] = [:]
     @Published private(set) var permissions: [PendingPermission] = []
+    /// Messages between agents, as they are sent.
+    let messages = PassthroughSubject<AgentMessage, Never>()
 
     private let settings = SettingsStore.shared
     private var timer: Timer?
@@ -110,6 +112,10 @@ final class SessionStore: ObservableObject {
         case "PreToolUse":
             let (a, d) = ActivityMapper.activity(forTool: toolName, input: toolInput)
             DailyStats.shared.recordTool(s, tool: toolName, input: toolInput)
+            if toolName == "SendMessage" || toolName == "send_input" {
+                messages.send(AgentMessage(sessionKey: key, fromSub: agentId,
+                                           to: toolInput["to"] as? String ?? toolInput["recipient"] as? String ?? toolInput["id"] as? String))
+            }
             if let agentId, let i = s.subagents.firstIndex(where: { $0.id == agentId }) {
                 s.subagents[i].activity = a
                 s.subagents[i].detail = d
@@ -160,9 +166,11 @@ final class SessionStore: ObservableObject {
                 s.subagents.append(SubAgent(id: id, type: agentType ?? "subagent"))
             }
             s.addLog("팀원 합류 · \(agentType ?? "subagent")")
+            if s.activeReaction == nil { s.react(.briefing, for: 3) }
         case "SubagentStop":
             s.subagents.removeAll { $0.id == agentId }
             s.addLog("팀원 복귀 · \(agentType ?? "subagent")")
+            if s.activeReaction == nil { s.react(.reportIn, for: 3) }
         case "PreCompact":
             let auto = (j["trigger"] as? String) == "auto"
             s.setActivity(.compacting, detail: auto ? "컨텍스트가 차서 정리 중" : "")

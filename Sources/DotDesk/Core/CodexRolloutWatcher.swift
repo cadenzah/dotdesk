@@ -161,8 +161,12 @@ final class CodexRolloutWatcher {
                 if t.commands.count > 200 { t.commands.removeAll() }
             }
             let (a, d) = ActivityMapper.activity(forTool: name, input: input)
-            change = { s in
+            let message = name == "send_input" ? AgentMessage(sessionKey: "codex:\(sid)", fromSub: nil, to: input["id"] as? String) : nil
+            let spawns = name == "spawn_agent"
+            change = { [store] s in
                 DailyStats.shared.recordTool(s, tool: name, input: input)
+                if let message, !DailyStats.shared.paused { store.messages.send(message) }
+                if spawns, s.activeReaction == nil { s.react(.briefing, for: 3) }
                 s.setActivity(a, detail: d)
                 s.addLog("\(a.label) · \(d)")
             }

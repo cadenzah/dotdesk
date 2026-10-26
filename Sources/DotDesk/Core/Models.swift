@@ -90,6 +90,9 @@ enum Reaction {
     case testsFailed
     /// Finished a long task: cheering with confetti.
     case celebrate
+    /// Handed work to a teammate, or got their results back.
+    case briefing
+    case reportIn
 
     var icon: PixelIcon {
         switch self {
@@ -97,6 +100,8 @@ enum Reaction {
         case .testsPassed: return .sparkle
         case .testsFailed: return .cross
         case .celebrate: return .party
+        case .briefing: return .talk
+        case .reportIn: return .checklist
         }
     }
 
@@ -106,6 +111,8 @@ enum Reaction {
         case .testsPassed: return "테스트 통과!"
         case .testsFailed: return "테스트가 실패했어요"
         case .celebrate: return "긴 작업을 끝냈어요!"
+        case .briefing: return "팀원에게 일을 맡겼어요"
+        case .reportIn: return "팀원이 결과를 가져왔어요"
         }
     }
 
@@ -138,6 +145,15 @@ struct ContextUsage: Equatable {
     func fraction(_ setting: Int) -> Double? {
         contextTokens.map { min(1, Double($0) / Double(window(setting))) }
     }
+}
+
+/// A message one agent sends another (SendMessage, Codex send_input), for the office to animate.
+struct AgentMessage {
+    let sessionKey: String
+    /// The subagent that sent it, or nil for the main agent.
+    let fromSub: String?
+    /// Name or id of the recipient as the agent wrote it.
+    let to: String?
 }
 
 struct LogEntry: Identifiable {

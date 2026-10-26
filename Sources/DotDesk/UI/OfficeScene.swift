@@ -394,7 +394,25 @@ final class OfficeSimulation: ObservableObject {
         var goal: Goal = .seat
         /// Ticks since they last stopped walking.
         var still = 0
+        /// A subagent who has been handed their work, and the tick until which they stay to hand results back.
+        var briefed = false
+        var returnUntil: Int?
+        /// Until this tick they take turns talking; `talkPhase` says whose turn comes first.
+        var talkUntil = 0
+        var talkPhase = 0
         var walking: Bool { !route.isEmpty }
+    }
+
+    /// A sheet of paper or a paper plane flying between two people.
+    struct Handoff {
+        enum Item { case paper, plane }
+        let from: String
+        /// An actor to fly to, or a fixed spot (the door, for messages to someone not in the office).
+        let to: String?
+        let toPoint: CGPoint?
+        let item: Item
+        let start: Int
+        var length: Int { item == .plane ? 20 : 12 }
     }
 
     struct Hit: Identifiable {
@@ -411,6 +429,8 @@ final class OfficeSimulation: ObservableObject {
     @Published private(set) var hits: [Hit] = []
 
     private var actors: [String: Actor] = [:]
+    private var handoffs: [Handoff] = []
+    private var messageSub: AnyCancellable?
     private let planner: RestPlanner
     /// Who was standing at a window when routes were last planned.
     private var lastGazers: Set<String> = []
@@ -423,6 +443,9 @@ final class OfficeSimulation: ObservableObject {
     /// The shared planner keeps the office in step with the desktop pet; --render-preview passes a seeded one.
     init(planner: RestPlanner? = nil) {
         self.planner = planner ?? .shared
+        messageSub = store.messages.sink { [weak self] m in
+            MainActor.assumeIsolated { self?.deliver(m) }
+        }
     }
 
     func start() {
@@ -476,6 +499,13 @@ final class OfficeSimulation: ObservableObject {
             }
         }
         for (id, a) in actors where !wanted.contains(id) {
+            // A subagent done with their work hands the results back before heading out.
+            if a.subId != nil, a.briefed, a.returnUntil == nil, !a.walking, case .helper = a.goal {
+                actors[id]?.returnUntil = tick + 22
+                if let main = mainActor(a.sessionKey) { converse(main, id, give: false) }
+                continue
+            }
+            if let r = a.returnUntil, tick < r { continue }
             actors[id]?.goal = .door
             if a.goal == .door, !a.walking, hypot(a.pos.x - L.door.x, a.pos.y - L.door.y) < 2 {
                 actors.removeValue(forKey: id)
@@ -525,6 +555,13 @@ final class OfficeSimulation: ObservableObject {
                 }
             }
             a.still = a.walking ? 0 : a.still + 1
+            if a.subId != nil, !a.walking, !a.briefed, case .helper = a.goal {
+                // Just arrived at the desk: get briefed and take the papers.
+                a.briefed = true
+                actors[id] = a
+                if let main = mainActor(a.sessionKey) { converse(main, id, give: true) }
+                a = actors[id] ?? a
+            }
             if !a.walking {
                 switch a.goal {
                 case .helper: a.facing = .up
@@ -540,6 +577,64 @@ final class OfficeSimulation: ObservableObject {
                                      uniquingKeysWith: { a, _ in a })
         layout = L
         frame = render(L, byKey)
+    }
+
+    // MARK: Handoffs
+
+    private func mainActor(_ sessionKey: String) -> String? {
+        actors.values.first { $0.sessionKey == sessionKey && $0.subId == nil }?.id
+    }
+
+    /// The main agent and a subagent talk in turn while papers change hands.
+    private func converse(_ main: String, _ helper: String, give: Bool) {
+        actors[main]?.talkUntil = tick + 36
+        actors[main]?.talkPhase = give ? 0 : 1
+        actors[helper]?.talkUntil = tick + 36
+        actors[helper]?.talkPhase = give ? 1 : 0
+        handoffs.append(Handoff(from: give ? main : helper, to: give ? helper : main, toPoint: nil, item: .paper, start: tick + 6))
+    }
+
+    /// A paper plane from the sender to whoever it names: one of their subagents, the main agent for a subagent's
+    /// message, another agent in the same project, or out the door.
+    private func deliver(_ m: AgentMessage) {
+        guard let main = mainActor(m.sessionKey) else { return }
+        let from = m.fromSub.map { "\(m.sessionKey)#\($0)" }.flatMap { actors[$0] != nil ? $0 : nil } ?? main
+        var to: String?
+        if m.fromSub != nil {
+            to = main
+        } else if let s = store.session(m.sessionKey) {
+            let helpers = s.subagents.map { "\(s.id)#\($0.id)" }.filter { actors[$0] != nil }
+            let named = s.subagents.first { $0.id == m.to || $0.type == m.to }.map { "\(s.id)#\($0.id)" }
+            to = named.flatMap { actors[$0] != nil ? $0 : nil } ?? helpers.first
+            if to == nil {
+                let peer = store.activeSessions.filter { $0.id != s.id && $0.projectKey == s.projectKey && $0.activity != .leaving }
+                    .max { $0.lastEventAt < $1.lastEventAt }
+                to = peer.flatMap { mainActor($0.id) }
+            }
+        }
+        handoffs.append(Handoff(from: from, to: to, toPoint: to == nil ? layout.door : nil, item: .plane, start: tick))
+    }
+
+    /// Where papers are passed: on the desk in front of someone seated, above the head of someone facing away
+    /// (hands raised to take it), chest height otherwise.
+    private func hand(_ id: String, _ L: OfficeLayout) -> CGPoint? {
+        guard let a = actors[id] else { return nil }
+        let seated = a.goal == .seat && !a.walking
+        return CGPoint(x: a.pos.x, y: a.pos.y - (seated ? 9 : a.facing == .up ? 30 : 14))
+    }
+
+    private func drawHandoffs(_ p: PixelContext, _ L: OfficeLayout) {
+        handoffs.removeAll { tick > $0.start + $0.length }
+        for h in handoffs where tick >= h.start {
+            guard let a = hand(h.from, L), let b = h.to.flatMap({ hand($0, L) }) ?? h.toPoint else { continue }
+            let t = CGFloat(tick - h.start) / CGFloat(h.length)
+            let x = a.x + (b.x - a.x) * t
+            let y = a.y + (b.y - a.y) * t - sin(t * .pi) * (h.item == .plane ? 16 : 8)
+            switch h.item {
+            case .paper: OfficeArt.paper(p, x.rounded(), y.rounded())
+            case .plane: OfficeArt.paperPlane(p, x.rounded(), y.rounded(), right: b.x >= a.x)
+            }
+        }
     }
 
     // MARK: Rendering
@@ -676,7 +771,10 @@ final class OfficeSimulation: ObservableObject {
             let headTop = lying ? rect.minY + 3 : skin.isSheet ? rect.minY + 7 : rect.minY
             // Chatters take turns talking.
             let silent: Bool = { if let rest, case .chat(_, let side) = rest.spot { return tick / 24 % 2 != side }; return false }()
-            if !a.walking, !silent, let icon = reaction?.icon ?? rest?.pastime.icon ?? activity.icon {
+            // Taking turns in a conversation: a talk bubble on your turn, nothing while you listen.
+            let talking = a.talkUntil > tick && !a.walking
+            let talkIcon: PixelIcon? = (tick / 12) % 2 == a.talkPhase ? .talk : nil
+            if !a.walking, !silent, let icon = talking ? talkIcon : reaction?.icon ?? rest?.pastime.icon ?? activity.icon {
                 // Bubbles stay at the resting position instead of bobbing with the sprite.
                 let bx = lying ? rect.minX + 8 : rect.midX - 2, by = headTop - 13 - bounce
                 bubbles.append({ p.image(icon.bubble, bx, by) })
@@ -691,6 +789,7 @@ final class OfficeSimulation: ObservableObject {
         }
 
         for (_, d) in draws.sorted(by: { $0.0 < $1.0 }) { d() }
+        drawHandoffs(p, L)
         for b in bubbles { b() }
         hits = newHits
         return p.makeImage()

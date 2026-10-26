@@ -159,6 +159,25 @@ enum OfficeArt {
         p.fill(x, y + 1, 1, 1, RGBA(0xffffff))
     }
 
+    /// A sheet of paper with a couple of lines, centred on (x, y).
+    static func paper(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
+        p.fill(x - 3, y - 3, 6, 7, Palette.outline)
+        p.fill(x - 2, y - 2, 4, 5, RGBA(0xffffff))
+        p.fill(x - 1, y - 1, 2, 1, RGBA(0xadb5bd)); p.fill(x - 1, y + 1, 2, 1, RGBA(0xadb5bd))
+    }
+
+    /// A small paper plane, nose pointing the way it flies.
+    static func paperPlane(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, right: Bool) {
+        let rows = [".....##", "..####.", "######.", "..##..."]
+        for (r, row) in rows.enumerated() {
+            for (c, ch) in row.enumerated() where ch == "#" {
+                let cx = right ? CGFloat(c) : CGFloat(6 - c)
+                p.fill(x - 3 + cx, y - 2 + CGFloat(r), 1, 1, r == 3 ? RGBA(0xced4da) : RGBA(0xffffff))
+            }
+        }
+        p.fill(x - 3 + (right ? 0 : 6), y, 1, 1, Palette.outline)
+    }
+
     // MARK: Decorations earned over time
 
     /// A framed landscape.

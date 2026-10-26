@@ -106,6 +106,29 @@ enum DebugRender {
             sim.advance(160)
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-\(k).png")) }
         }
+        // A teammate joins: walks in, gets briefed and handed papers; then a message, and the results handed back.
+        func hook(_ event: String, _ json: [String: Any]) {
+            store.handleHook(HookRequest(provider: .claude, event: event, configDir: nil, origin: nil,
+                                         json: json.merging(["session_id": "demo-1"]) { a, _ in a }), responder: HookResponder { _ in })
+        }
+        store.demoStep()
+        hook("UserPromptSubmit", ["prompt": "preview"])
+        sim.advance(160)
+        hook("SubagentStart", ["agent_id": "preview-sub", "agent_type": "Explore"])
+        for i in 0..<16 {
+            sim.advance(6)
+            if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent(String(format: "handoff-in-%02d.png", i))) }
+        }
+        hook("PreToolUse", ["tool_name": "SendMessage", "tool_input": ["to": "Explore", "message": "hi"]])
+        sim.advance(9)
+        if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("handoff-plane.png")) }
+        hook("SubagentStop", ["agent_id": "preview-sub", "agent_type": "Explore"])
+        for i in 0..<6 {
+            sim.advance(5)
+            if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent(String(format: "handoff-out-%02d.png", i))) }
+        }
+        sim.advance(160)
+
         // Lounge: one sleeper up to four picking random spots, with a frame mid-walk and one settled.
         for (name, keys) in [("lounge-1", ["claude:demo-1"]), ("lounge-2", ["claude:demo-1", "claude:demo-2"]),
                              ("lounge-3", ["claude:demo-1", "claude:demo-2", "codex:demo-3"]),
