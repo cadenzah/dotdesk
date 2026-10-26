@@ -72,6 +72,10 @@ final class SessionStore: ObservableObject {
         var s = sessions[key] ?? makeSession(key: key, provider: req.provider, sessionId: sid, cwd: j["cwd"] as? String)
         s.viaHooks = true
         s.lastEventAt = Date()
+        if var o = req.origin, o.pid != s.origin?.pid || o.tmuxPane != s.origin?.tmuxPane {
+            WindowFocuser.resolve(&o)
+            s.origin = o
+        }
         if let cwd = j["cwd"] as? String, s.cwd == nil { updateCwd(&s, cwd) }
         if s.workerId == nil, req.event != "SessionEnd" { staff(&s, takeOver: isNew) }
         if let m = j["model"] as? String { s.model = m }

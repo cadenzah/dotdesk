@@ -6,6 +6,8 @@ struct HookRequest {
     let event: String
     /// CLAUDE_CONFIG_DIR / CODEX_HOME of the agent process, empty when unset.
     let configDir: String?
+    /// Where the agent runs, so clicking its character can bring that window forward.
+    let origin: SessionOrigin?
     let json: [String: Any]
 }
 
@@ -128,6 +130,7 @@ final class EventServer {
         let event = req.headers["x-dotdesk-event"].flatMap { $0.isEmpty ? nil : $0 }
             ?? json["hook_event_name"] as? String ?? "Unknown"
         let configDir = req.headers["x-dotdesk-config-dir"].flatMap { $0.isEmpty ? nil : $0 }
+        let origin = SessionOrigin(headers: req.headers)
 
         let responder = HookResponder { body in
             self.queue.async { respond("200 OK", body) }
@@ -136,7 +139,7 @@ final class EventServer {
         c.receive(minimumIncompleteLength: 1, maximumLength: 1) { _, _, isComplete, error in
             if isComplete || error != nil { responder.peerClosed() }
         }
-        let hook = HookRequest(provider: provider, event: event, configDir: configDir, json: json)
+        let hook = HookRequest(provider: provider, event: event, configDir: configDir, origin: origin, json: json)
         DispatchQueue.main.async { [weak self] in
             if let h = self?.handler { h(hook, responder) } else { responder.reply() }
         }

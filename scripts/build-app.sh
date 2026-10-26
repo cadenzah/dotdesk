@@ -25,6 +25,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppleEventsUsageDescription</key><string>에이전트가 일하는 Terminal·iTerm2 탭을 앞으로 가져오는 데 써요.</string>
 </dict>
 </plist>
 PLIST

@@ -76,6 +76,10 @@ enum Runtime {
       -H "X-DotDesk-Token: $token" \
       -H "X-DotDesk-Event: $event" \
       -H "X-DotDesk-Config-Dir: $conf" \
+      -H "X-DotDesk-PID: $PPID" \
+      -H "X-DotDesk-App: ${__CFBundleIdentifier:-}" \
+      -H "X-DotDesk-Tmux: ${TMUX:-}" \
+      -H "X-DotDesk-Tmux-Pane: ${TMUX_PANE:-}" \
       --data-binary @- "http://127.0.0.1:$port/hook/$provider" 2>/dev/null
     exit 0
     """#

@@ -393,6 +393,7 @@ struct IntegrationsTab: View {
     @State private var message: String?
     @State private var newClaudeDir = ""
     @State private var newCodexHome = ""
+    @State private var axTrusted = AXIsProcessTrusted()
 
     var body: some View {
         Form {
@@ -433,6 +434,24 @@ struct IntegrationsTab: View {
                 Text("Codex는 새 훅을 처음 쓸 때 검토가 필요해요. 터미널에서 codex를 실행하고 /hooks에서 DotDesk 훅을 신뢰해 주세요.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section("에이전트 창으로 가기") {
+                LabeledContent("Terminal · iTerm2") {
+                    Text("탭까지 정확히 찾아요").foregroundStyle(.secondary)
+                }
+                LabeledContent("그 밖의 앱 (VS Code, Cursor, Ghostty…)") {
+                    if axTrusted {
+                        Label("프로젝트 창을 찾아요", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else {
+                        Button("손쉬운 사용 권한 주기") {
+                            let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+                            _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+                        }
+                    }
+                }
+                Text("펫을 클릭하거나 사무실에서 캐릭터를 더블클릭하면 그 에이전트가 일하는 창으로 가요. Terminal과 iTerm2는 처음 한 번 제어 권한을 물어봐요. 다른 앱은 앱만 앞으로 가져오고, 손쉬운 사용 권한이 있으면 프로젝트 이름이 제목에 든 창을 골라요. tmux 안에서 돌면 그 창과 패널도 골라 줘요.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in axTrusted = AXIsProcessTrusted() }
             Section("테스트") {
                 Toggle("데모 에이전트 출근시키기", isOn: Binding(get: { store.demoRunning }, set: { _ in store.toggleDemo() }))
                 LabeledContent("이벤트 서버", value: AppDelegate.shared.map { "127.0.0.1:\($0.serverPort)" } ?? "-")

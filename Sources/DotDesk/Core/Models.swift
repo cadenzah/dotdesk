@@ -115,6 +115,7 @@ struct AgentSession: Identifiable {
     var subagents: [SubAgent] = []
     var log: [LogEntry] = []
     var viaHooks = false
+    var origin: SessionOrigin?
     var autoAllowThisSession = false
     /// The worker on screen for this session. Nil once a newer session in the project took them over while this one rested.
     var workerId: String?
@@ -128,6 +129,31 @@ struct AgentSession: Identifiable {
         if a != activity { activityChangedAt = Date() }
         activity = a
         if let d { detail = d }
+    }
+}
+
+/// The process and terminal an agent runs in, as reported by the hook relay.
+struct SessionOrigin: Equatable {
+    /// Parent of the hook relay: the agent itself or a shell it spawned.
+    var pid: Int32?
+    /// `__CFBundleIdentifier` inherited from the app the agent was started in.
+    var appBundleId: String?
+    /// `$TMUX` (socket path, server pid, session) and `$TMUX_PANE` when running inside tmux.
+    var tmux: String?
+    var tmuxPane: String?
+    /// Filled in by WindowFocuser from the process tree.
+    var tty: String?
+    var appPid: Int32?
+
+    init(pid: Int32) { self.pid = pid }
+
+    init?(headers: [String: String]) {
+        func value(_ name: String) -> String? { headers[name].flatMap { $0.isEmpty ? nil : $0 } }
+        pid = value("x-dotdesk-pid").flatMap { Int32($0) }.flatMap { $0 > 1 ? $0 : nil }
+        appBundleId = value("x-dotdesk-app")
+        tmux = value("x-dotdesk-tmux")
+        tmuxPane = value("x-dotdesk-tmux-pane")
+        if pid == nil, appBundleId == nil, tmuxPane == nil { return nil }
     }
 }
 

@@ -110,6 +110,7 @@ struct OfficeView: View {
                             .frame(width: h.rect.width * scale, height: h.rect.height * scale)
                             .offset(x: ox + h.rect.minX * scale, y: oy + h.rect.minY * scale)
                             .help("\(store.nickname(s)) · \(h.label ?? s.activity.label)\(s.detail.isEmpty ? "" : " · \(s.detail)")")
+                            .onTapGesture(count: 2) { WindowFocuser.focusOrBeep(s) }
                             .onTapGesture { selected = h.sessionKey }
                             .contextMenu { SessionMenu(session: s) }
                             .popover(isPresented: Binding(get: { selected == h.sessionKey }, set: { if !$0 { selected = nil } })) {
@@ -170,6 +171,9 @@ struct SessionMenu: View {
     var body: some View {
         let s = session
         Text("\(store.nickname(s)) · \(settings.projectName(s.projectKey))")
+        if WindowFocuser.canFocus(s) {
+            Button("에이전트 창으로 가기") { WindowFocuser.focusOrBeep(s) }
+        }
         Button("이름·캐릭터 바꾸기…") { AppDelegate.shared?.editSession(s.id) }
         Menu("캐릭터") {
             CharacterPickerMenu(current: store.characterRef(s)) { ref in
@@ -229,6 +233,12 @@ struct SessionDetail: View {
                     Text(store.nickname(s)).font(.headline)
                     Text(restLabel ?? s.activity.label).font(.caption).padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                    Spacer()
+                    if WindowFocuser.canFocus(s) {
+                        Button("창으로 가기") { WindowFocuser.focusOrBeep(s) }
+                            .controlSize(.small)
+                            .help("에이전트가 일하는 터미널이나 앱 창을 앞으로 가져와요 (캐릭터를 더블클릭해도 돼요)")
+                    }
                 }
                 Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
                     GridRow { Text("프로젝트").foregroundStyle(.secondary); Text(settings.projectName(s.projectKey)) }

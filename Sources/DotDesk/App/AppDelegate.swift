@@ -79,7 +79,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let state = SessionStore.shared.activeSessions.map { s -> [String: Any] in
             ["id": s.id, "project": s.projectKey, "activity": s.activity.rawValue, "detail": s.detail,
              "account": s.account.map { SettingsStore.shared.accountLabel($0) } ?? "",
-             "subagents": s.subagents.map(\.type), "log": s.log.map(\.text)]
+             "subagents": s.subagents.map(\.type), "log": s.log.map(\.text),
+             "origin": [
+                 "pid": s.origin?.pid.map(String.init), "app": s.origin?.appBundleId,
+                 "appPid": s.origin?.appPid.map(String.init), "tty": s.origin?.tty, "tmuxPane": s.origin?.tmuxPane,
+             ].compactMapValues { $0 }]
         }
         if let data = try? JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys]) {
             try? data.write(to: dir.appendingPathComponent("state.json"))
@@ -139,6 +143,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let a = s.account { sub.addItem(withTitle: settings.accountLabel(a), action: nil, keyEquivalent: "").isEnabled = false }
             if !s.detail.isEmpty { sub.addItem(withTitle: s.detail, action: nil, keyEquivalent: "").isEnabled = false }
             sub.addItem(.separator())
+            if WindowFocuser.canFocus(s) {
+                sub.addItem(MenuAction("에이전트 창으로 가기") { WindowFocuser.focusOrBeep(s) })
+            }
             if PetManager.shared.pinned[s.id] == nil {
                 sub.addItem(MenuAction("데스크톱 펫으로 꺼내기") { PetManager.shared.popOut(s.id) })
             } else {

@@ -248,6 +248,9 @@ final class PetController: NSObject {
         if let s = session {
             m.addItem(withTitle: "\(store.nickname(s)) · \(settings.projectName(s.projectKey))", action: nil, keyEquivalent: "").isEnabled = false
             m.addItem(.separator())
+            if WindowFocuser.canFocus(s) {
+                m.addItem(MenuAction("에이전트 창으로 가기") { WindowFocuser.focusOrBeep(s) })
+            }
             m.addItem(MenuAction("이 세션 자동 허용", checked: s.autoAllowThisSession) { [store] in
                 let on = !s.autoAllowThisSession
                 if on, !AutoAllowWarning.confirm("이 세션") { return }
@@ -440,7 +443,10 @@ struct DragHandle: NSViewRepresentable {
             MainActor.assumeIsolated {
                 guard let c = controller else { return }
                 c.endDrag()
-                if !moved { NSMenu.popUpContextMenu(c.menu(), with: event, for: self) }
+                guard !moved else { return }
+                // A click takes you to the agent's window; the menu is there when that isn't possible.
+                if let s = c.session, WindowFocuser.focus(s) { return }
+                NSMenu.popUpContextMenu(c.menu(), with: event, for: self)
             }
         }
 
