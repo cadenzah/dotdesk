@@ -116,8 +116,8 @@ struct AgentSession: Identifiable {
     var log: [LogEntry] = []
     var viaHooks = false
     var autoAllowThisSession = false
-    var autoCharacter: String = "builtin:0"
-    var autoNickname: String = ""
+    /// The worker on screen for this session. Nil once a newer session in the project took them over while this one rested.
+    var workerId: String?
 
     mutating func addLog(_ text: String) {
         log.append(LogEntry(date: Date(), text: text))
@@ -129,6 +129,25 @@ struct AgentSession: Identifiable {
         activity = a
         if let d { detail = d }
     }
+}
+
+/// A character at a desk. Sessions come and go, so a worker whose session ended or is resting takes on
+/// the next new session in the same project, keeping their name and look.
+struct Worker: Codable, Identifiable {
+    let id: String
+    /// Empty for workers carried over from per-session settings, until their session shows up again.
+    var projectKey: String
+    /// Picked again on each launch, so a changed character source applies.
+    var autoNickname = ""
+    var autoCharacter = ""
+    var name: String?
+    var character: String?
+    /// The session they last worked for.
+    var sessionKey: String?
+    /// Where that session ran, so a session started right there (after /clear) gets them back first.
+    var cwd: String?
+    /// When they last started or finished working for a session.
+    var lastSeen = Date()
 }
 
 enum PermissionMode: String, Codable, CaseIterable, Identifiable {

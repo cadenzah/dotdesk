@@ -71,7 +71,6 @@ enum DebugRender {
 
     private static func renderOffice(to out: URL) {
         let store = SessionStore.shared
-        let settings = SettingsStore.shared
         store.toggleDemo()
         let sim = OfficeSimulation(seed: 7)
         for k in 0..<4 {
@@ -111,7 +110,7 @@ enum DebugRender {
             }
         }
         // Two rows of desks, so the lounge is tall enough for the bookshelf.
-        store.demoExtra(true)
+        store.demoJoin("demo-5", cwd: "/tmp/dotdesk-demo/docs")
         store.demoStep()
         sim.advance(160)
         store.demoSleep(keys + ["claude:demo-5"])
@@ -121,12 +120,12 @@ enum DebugRender {
         }
         sim.advance(200)
         if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-rest-tall.png")) }
-        store.demoExtra(false)
+        store.demoRemove("demo-5")
         // Same scene with other character sources.
         let paRefs = ["pa:0", "pa:3", "pa:5"], pokeRefs = SpriteLibrary.shared.pokemon.prefix(3).map { "poke:\($0.id)" }
         for (name, refs) in [("pa", paRefs), ("poke", Array(pokeRefs))] where !refs.isEmpty {
             for (i, key) in ["claude:demo-1", "claude:demo-2", "codex:demo-3"].enumerated() {
-                settings.s.sessions[key] = SessionOverride(name: nil, character: refs[i % refs.count])
+                store.setCharacter(key, refs[i % refs.count])
             }
             store.demoStep()
             sim.advance(10)
@@ -135,13 +134,33 @@ enum DebugRender {
         // The lounge again, with Pixel Agents and Pokémon sitting on the sofa.
         for (name, refs) in [("pa", paRefs), ("poke", Array(pokeRefs))] where !refs.isEmpty {
             for (i, key) in ["claude:demo-1", "claude:demo-2"].enumerated() {
-                settings.s.sessions[key] = SessionOverride(name: nil, character: refs[i % refs.count])
+                store.setCharacter(key, refs[i % refs.count])
             }
             store.demoSleep(["claude:demo-1", "claude:demo-2"])
             sim.advance(160)
             if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-lounge-\(name).png")) }
         }
-        settings.s.sessions = [:]
+        for key in keys { store.setCharacter(key, nil) }
+        // A new session in a project whose agents all rest takes over the one resting longest, who walks over from the
+        // lounge; once the session they left works again, someone new comes in for it.
+        func who() -> String {
+            (keys + ["claude:demo-6"]).compactMap { store.session($0) }
+                .map { s in "\(s.sessionId)=\(s.workerId == nil ? "-" : store.nickname(s))" }.joined(separator: " ")
+        }
+        store.demoSleep(["claude:demo-1", "claude:demo-2"])
+        sim.advance(160)
+        print("handover before:", who())
+        store.demoJoin("demo-6", cwd: "/tmp/dotdesk-demo/web-app")
+        sim.advance(14)
+        if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-handover-walk.png")) }
+        sim.advance(160)
+        if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-handover.png")) }
+        print("handover after:", who())
+        store.demoStep()
+        sim.advance(160)
+        if let f = sim.frame { write(f, scale: 4, to: out.appendingPathComponent("office-handover-back.png")) }
+        print("handover back:", who())
+        store.demoRemove("demo-6")
     }
 
     /// The desktop pet while its agent rests, several times over so the random pastimes show up.

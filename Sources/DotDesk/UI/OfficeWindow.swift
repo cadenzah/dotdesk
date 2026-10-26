@@ -173,7 +173,7 @@ struct SessionMenu: View {
         Button("이름·캐릭터 바꾸기…") { AppDelegate.shared?.editSession(s.id) }
         Menu("캐릭터") {
             CharacterPickerMenu(current: store.characterRef(s)) { ref in
-                settings.s.sessions[s.id, default: SessionOverride()].character = ref
+                store.setCharacter(s.id, ref)
             }
         }
         Button("이 캐릭터를 프로젝트 기본으로") {

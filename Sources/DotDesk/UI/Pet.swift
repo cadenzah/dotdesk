@@ -102,7 +102,7 @@ final class PetController: NSObject {
     private func step() {
         tick += 1
         let s = session
-        if pinnedSession != nil, s == nil || s?.activity == .leaving {
+        if pinnedSession != nil, s == nil || s?.activity == .leaving || s?.workerId == nil {
             onClose?()
             return
         }
@@ -296,7 +296,7 @@ final class PetManager {
 
     func autoTarget() -> AgentSession? {
         store.sessions.values
-            .filter { $0.activity != .leaving && pinned[$0.id] == nil }
+            .filter { $0.activity != .leaving && $0.workerId != nil && pinned[$0.id] == nil }
             .max { a, b in
                 // Prefer agents that need the user, then the most recently active one.
                 (a.activity.needsUser ? 1 : 0, a.lastEventAt) < (b.activity.needsUser ? 1 : 0, b.lastEventAt)

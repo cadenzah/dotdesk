@@ -61,6 +61,7 @@ struct AccountSettings: Codable, Equatable {
     var lastSeen: AccountInfo?
 }
 
+/// Per-session name and character from before workers; moved into `AppSettings.workers` on launch.
 struct SessionOverride: Codable, Equatable {
     var name: String?
     var character: String?
@@ -78,6 +79,7 @@ struct AppSettings: Codable {
     var projects: [String: ProjectSettings] = [:]
     var accounts: [String: AccountSettings] = [:]
     var sessions: [String: SessionOverride] = [:]
+    var workers: [String: Worker] = [:]
     var claudeConfigDirs: [String] = ["~/.claude"]
     var codexHomes: [String] = ["~/.codex"]
     var watchCodexRollouts = true

@@ -21,22 +21,43 @@ final class SessionStore: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.maintain() }
         }
+        loadWorkers()
     }
 
+    /// Sessions with someone at their desk, which is every session on screen.
     var activeSessions: [AgentSession] {
-        sessions.values.sorted { ($0.projectKey, $0.startedAt) < ($1.projectKey, $1.startedAt) }
+        sessions.values.filter { $0.workerId != nil }
+            .sorted { ($0.projectKey, $0.startedAt) < ($1.projectKey, $1.startedAt) }
     }
 
     // MARK: Display helpers
 
+    func worker(_ s: AgentSession) -> Worker? {
+        s.workerId.flatMap { settings.s.workers[$0] }
+    }
+
     func nickname(_ s: AgentSession) -> String {
-        settings.s.sessions[s.id]?.name.flatMap { $0.isEmpty ? nil : $0 } ?? s.autoNickname
+        guard let w = worker(s) else { return "에이전트" }
+        return w.name.flatMap { $0.isEmpty ? nil : $0 } ?? w.autoNickname
     }
 
     func characterRef(_ s: AgentSession) -> String {
-        settings.s.sessions[s.id]?.character
+        worker(s)?.character
             ?? settings.s.projects[s.projectKey]?.character
-            ?? s.autoCharacter
+            ?? worker(s)?.autoCharacter
+            ?? "builtin:0"
+    }
+
+    /// Name and character for the worker at this session's desk; nil goes back to the automatic one.
+    func customize(_ key: String, name: String?, character: String?) {
+        guard let id = sessions[key]?.workerId else { return }
+        settings.s.workers[id]?.name = name
+        settings.s.workers[id]?.character = character
+    }
+
+    func setCharacter(_ key: String, _ ref: String?) {
+        guard let id = sessions[key]?.workerId else { return }
+        settings.s.workers[id]?.character = ref
     }
 
     func session(_ key: String) -> AgentSession? { sessions[key] }
@@ -47,10 +68,12 @@ final class SessionStore: ObservableObject {
         let j = req.json
         let sid = j["session_id"] as? String ?? "unknown"
         let key = "\(req.provider.rawValue):\(sid)"
+        let isNew = sessions[key] == nil
         var s = sessions[key] ?? makeSession(key: key, provider: req.provider, sessionId: sid, cwd: j["cwd"] as? String)
         s.viaHooks = true
         s.lastEventAt = Date()
         if let cwd = j["cwd"] as? String, s.cwd == nil { updateCwd(&s, cwd) }
+        if s.workerId == nil, req.event != "SessionEnd" { staff(&s, takeOver: isNew) }
         if let m = j["model"] as? String { s.model = m }
         if s.account == nil || req.event == "SessionStart" {
             let acc = AccountResolver.resolve(provider: req.provider, configDir: req.configDir)
@@ -131,6 +154,7 @@ final class SessionStore: ObservableObject {
             s.setActivity(.leaving, detail: "")
             s.subagents.removeAll()
             s.addLog("세션 종료")
+            release(s)
             dropPermissions(for: key)
         default:
             break
@@ -142,6 +166,7 @@ final class SessionStore: ObservableObject {
     /// Activity reported from a Codex rollout file. Ignored once that session reports through hooks.
     func applyRollout(sessionId: String, cwd: String?, home: String, update: (inout AgentSession) -> Void) {
         let key = "codex:\(sessionId)"
+        let isNew = sessions[key] == nil
         var s = sessions[key] ?? makeSession(key: key, provider: .codex, sessionId: sessionId, cwd: cwd)
         if s.viaHooks { return }
         if s.cwd == nil, let cwd { updateCwd(&s, cwd) }
@@ -152,19 +177,13 @@ final class SessionStore: ObservableObject {
         }
         s.lastEventAt = Date()
         update(&s)
+        if s.workerId == nil, s.activity != .leaving { staff(&s, takeOver: isNew) }
         sessions[key] = s
     }
 
     private func makeSession(key: String, provider: Provider, sessionId: String, cwd: String?) -> AgentSession {
         let project = cwd.map(ProjectResolver.projectKey) ?? "(unknown)"
-        var s = AgentSession(id: key, provider: provider, sessionId: sessionId, cwd: cwd, projectKey: project)
-        let used = Set(sessions.values.map(\.autoCharacter))
-        s.autoCharacter = SpriteLibrary.shared.autoCharacter(seed: key, avoiding: used)
-        let usedNames = Set(sessions.values.map(\.autoNickname))
-        let names = Self.nicknames
-        let start = Int(stableHash(key) % UInt64(names.count))
-        s.autoNickname = (0..<names.count).map { names[(start + $0) % names.count] }.first { !usedNames.contains($0) }
-            ?? names[start]
+        let s = AgentSession(id: key, provider: provider, sessionId: sessionId, cwd: cwd, projectKey: project)
         if cwd != nil { settings.touchProject(project) }
         return s
     }
@@ -173,6 +192,92 @@ final class SessionStore: ObservableObject {
         s.cwd = cwd
         s.projectKey = ProjectResolver.projectKey(for: cwd)
         settings.touchProject(s.projectKey)
+        // Someone hired before the folder was known belongs to this project now.
+        if let id = s.workerId {
+            settings.s.workers[id]?.projectKey = s.projectKey
+            settings.s.workers[id]?.cwd = cwd
+        }
+    }
+
+    // MARK: Workers
+
+    /// Moves per-session customizations from older versions into workers and drops workers unseen for 30 days.
+    private func loadWorkers() {
+        var workers = settings.s.workers
+        for (key, o) in settings.s.sessions where workers[key] == nil && (o.name != nil || o.character != nil) {
+            workers[key] = Worker(id: key, projectKey: "", name: o.name, character: o.character, sessionKey: key, lastSeen: o.lastSeen)
+        }
+        let cutoff = Date().addingTimeInterval(-30 * 24 * 3600)
+        workers = workers.filter { $0.value.lastSeen > cutoff && !$0.key.contains(":demo-") }
+        for id in workers.keys {
+            workers[id]?.autoNickname = ""
+            workers[id]?.autoCharacter = ""
+        }
+        settings.s.workers = workers
+        settings.s.sessions = [:]
+    }
+
+    /// Puts someone at the session's desk: whoever worked for it before a relaunch, else a free worker of the project
+    /// (one from the same folder first, which keeps the same face across /clear). A new session may also take over a
+    /// resting session's worker, leaving that session off screen until it works again. Otherwise someone new is hired.
+    private func staff(_ s: inout AgentSession, takeOver: Bool) {
+        let key = s.id, cwd = s.cwd
+        let holders = Dictionary(sessions.values.filter { $0.id != key }.compactMap { o in o.workerId.map { ($0, o) } },
+                                 uniquingKeysWith: { a, _ in a })
+        let project = settings.s.workers.values.filter {
+            $0.projectKey == s.projectKey || ($0.projectKey.isEmpty && $0.sessionKey == key)
+        }
+        // Nobody works with them, or their session is on its way out.
+        let free = project.filter { holders[$0.id].map { $0.activity == .leaving } ?? true }
+        var pick = free.first { $0.sessionKey == key }
+            ?? free.max { ($0.cwd == cwd ? 1 : 0, $0.lastSeen) < ($1.cwd == cwd ? 1 : 0, $1.lastSeen) }
+        if pick == nil, takeOver {
+            let resting = project.compactMap { w in holders[w.id].map { (w, $0) } }.filter { _, h in
+                h.activity == .sleeping && !permissions.contains { $0.sessionKey == h.id }
+            }
+            pick = resting.min { $0.1.lastEventAt < $1.1.lastEventAt }?.0
+        }
+        var w = pick ?? hire(for: s)
+        if let h = holders[w.id] {
+            sessions[h.id]?.workerId = nil
+            if h.activity != .leaving { sessions[h.id]?.addLog("\(withSubjectParticle(nickname(h))) 새 세션을 맡으러 갔어요") }
+        }
+        if w.autoCharacter.isEmpty || w.autoNickname.isEmpty { pickLook(&w) }
+        let continued = w.sessionKey != nil && w.sessionKey != key
+        w.projectKey = s.projectKey
+        w.sessionKey = key
+        if let cwd { w.cwd = cwd }
+        w.lastSeen = Date()
+        settings.s.workers[w.id] = w
+        s.workerId = w.id
+        if continued { s.addLog("\(withSubjectParticle(nickname(s))) 이어서 맡았어요") }
+    }
+
+    private func hire(for s: AgentSession) -> Worker {
+        var id = s.id
+        if settings.s.workers[id] != nil { id += "#" + UUID().uuidString.prefix(8) }
+        return Worker(id: id, projectKey: s.projectKey)
+    }
+
+    /// Automatic name and look, avoiding ones already on screen.
+    private func pickLook(_ w: inout Worker) {
+        let others = sessions.values.compactMap(\.workerId).filter { $0 != w.id }.compactMap { settings.s.workers[$0] }
+        if w.autoCharacter.isEmpty {
+            w.autoCharacter = SpriteLibrary.shared.autoCharacter(seed: w.id, avoiding: Set(others.map(\.autoCharacter)))
+        }
+        if w.autoNickname.isEmpty {
+            let used = Set(others.map(\.autoNickname))
+            let names = Self.nicknames
+            let start = Int(stableHash(w.id) % UInt64(names.count))
+            w.autoNickname = (0..<names.count).map { names[(start + $0) % names.count] }.first { !used.contains($0) }
+                ?? names[start]
+        }
+    }
+
+    /// The session is done, so its worker is free for the next one in the project.
+    private func release(_ s: AgentSession) {
+        guard let id = s.workerId else { return }
+        settings.s.workers[id]?.lastSeen = Date()
     }
 
     // MARK: Permissions
@@ -294,6 +399,7 @@ final class SessionStore: ObservableObject {
             if quiet > forgetAfter {
                 s.setActivity(.leaving)
                 s.lastEventAt = now
+                release(s)
                 changed = true
             } else if quiet > (s.activity.isWorking ? max(sleepAfter * 3, 900) : sleepAfter),
                       s.activity != .sleeping, s.activity != .leaving,
@@ -318,6 +424,7 @@ final class SessionStore: ObservableObject {
             for key in sessions.keys where key.hasPrefix("claude:demo-") || key.hasPrefix("codex:demo-") {
                 sessions[key]?.setActivity(.leaving)
                 sessions[key]?.lastEventAt = Date()
+                if let s = sessions[key] { release(s) }
             }
             return
         }
@@ -334,6 +441,7 @@ final class SessionStore: ObservableObject {
             s.projectKey = cwd
             s.account = AccountInfo(key: "demo:\(p.rawValue)", provider: p, email: "demo@example.com",
                                     orgName: p == .claude ? "Demo Org" : nil, plan: nil, configDir: "~")
+            staff(&s, takeOver: false)
             sessions[key] = s
         }
         demoTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
@@ -341,14 +449,18 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    /// Adds or removes a fifth demo agent, which pushes the desks into a second row (used by --render-preview).
-    func demoExtra(_ on: Bool) {
-        let key = "claude:demo-5", cwd = "/tmp/dotdesk-demo/docs"
-        guard on else { sessions.removeValue(forKey: key); return }
-        var s = makeSession(key: key, provider: .claude, sessionId: "demo-5", cwd: nil)
+    /// Starts another demo session, staffed like a real new one (used by --render-preview).
+    func demoJoin(_ id: String, cwd: String) {
+        let key = "claude:\(id)"
+        var s = makeSession(key: key, provider: .claude, sessionId: id, cwd: nil)
         s.cwd = cwd
         s.projectKey = cwd
+        staff(&s, takeOver: true)
         sessions[key] = s
+    }
+
+    func demoRemove(_ id: String) {
+        sessions.removeValue(forKey: "claude:\(id)")
     }
 
     private var demoStepIndex = 0
@@ -363,6 +475,7 @@ final class SessionStore: ObservableObject {
             guard var s = sessions[key] else { continue }
             let (a, d) = script[(demoStepIndex + i * 3) % script.count]
             s.setActivity(a, detail: d)
+            if s.workerId == nil { staff(&s, takeOver: false) }
             s.lastEventAt = Date()
             if a == .done { s.doneUntil = Date().addingTimeInterval(2) }
             if a == .delegating, s.subagents.isEmpty {

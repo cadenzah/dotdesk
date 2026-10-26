@@ -355,9 +355,10 @@ final class OfficeSimulation: ObservableObject {
         let until: Int
     }
 
+    /// A worker walking around (keyed by worker, so they keep their place when they take on another session), or a subagent.
     struct Actor {
         let id: String
-        let sessionKey: String
+        var sessionKey: String
         let subId: String?
         var pos: CGPoint
         var route: [CGPoint] = []
@@ -435,13 +436,15 @@ final class OfficeSimulation: ObservableObject {
         // Spawn / retarget actors
         var wanted = Set<String>()
         for s in sessions {
-            wanted.insert(s.id)
-            if actors[s.id] == nil { actors[s.id] = Actor(id: s.id, sessionKey: s.id, subId: nil, pos: L.door) }
+            guard let wid = s.workerId else { continue }
+            wanted.insert(wid)
+            if actors[wid] == nil { actors[wid] = Actor(id: wid, sessionKey: s.id, subId: nil, pos: L.door) }
+            actors[wid]?.sessionKey = s.id
             let goal: Goal
             if s.activity == .leaving { goal = .door }
             else if let r = rests[s.id] { goal = .rest(r.spot) }
             else { goal = .seat }
-            actors[s.id]?.goal = goal
+            actors[wid]?.goal = goal
             for (i, sub) in s.subagents.prefix(3).enumerated() where s.activity != .sleeping && s.activity != .leaving {
                 let id = "\(s.id)#\(sub.id)"
                 wanted.insert(id)
@@ -686,7 +689,7 @@ final class OfficeSimulation: ObservableObject {
     }
 
     private func actorSeated(_ key: String) -> Bool {
-        guard let a = actors[key] else { return false }
+        guard let a = actors.values.first(where: { $0.sessionKey == key && $0.subId == nil }) else { return false }
         return a.goal == .seat && !a.walking
     }
 

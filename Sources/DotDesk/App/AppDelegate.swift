@@ -223,19 +223,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let view = AgentEditView(
             title: store.nickname(s),
             subtitle: "\(settings.projectName(s.projectKey)) · \(s.provider.displayName)",
-            name: settings.s.sessions[key]?.name ?? "",
-            namePlaceholder: s.autoNickname,
-            ref: settings.s.sessions[key]?.character,
-            autoRef: settings.s.projects[s.projectKey]?.character ?? s.autoCharacter,
+            name: store.worker(s)?.name ?? "",
+            namePlaceholder: store.worker(s)?.autoNickname ?? "",
+            ref: store.worker(s)?.character,
+            autoRef: settings.s.projects[s.projectKey]?.character ?? store.worker(s)?.autoCharacter ?? "builtin:0",
             shirt: settings.projectColor(s.projectKey),
             save: { [weak self, weak w] name, ref in
-                guard let self else { return }
-                var o = self.settings.s.sessions[key] ?? SessionOverride()
-                o.name = name.isEmpty ? nil : name
-                o.character = ref
-                o.lastSeen = Date()
-                self.settings.s.sessions[key] = o
-                self.pruneSessionOverrides()
+                self?.store.customize(key, name: name.isEmpty ? nil : name, character: ref)
                 w?.close()
             },
             cancel: { [weak w] in w?.close() })
@@ -246,10 +240,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         editWindow = w
         NSApp.activate(ignoringOtherApps: true)
         w.makeKeyAndOrderFront(nil)
-    }
-
-    private func pruneSessionOverrides() {
-        let cutoff = Date().addingTimeInterval(-30 * 24 * 3600)
-        settings.s.sessions = settings.s.sessions.filter { $0.value.lastSeen > cutoff }
     }
 }
