@@ -143,7 +143,8 @@ final class PetController: NSObject {
 
         // Movement
         let busy = activity.isWorking || activity.needsUser || activity == .sleeping || activity == .done
-        let screen = (panel.screen ?? NSScreen.main)?.visibleFrame ?? .zero
+        let roam = roamScreen()
+        let screen = roam?.visibleFrame ?? .zero
         // Waited too long: come to the middle of the screen (when roaming) and wave.
         let calling = s.map(AlertCenter.shared.isCalling) ?? false
         var waving = false
@@ -167,10 +168,9 @@ final class PetController: NSObject {
             } else {
                 walking = true
                 x += dir * 1.4
-                let minX = screen.minX - Self.windowSize.width / 2 + 30
-                let maxX = screen.maxX - Self.windowSize.width / 2 - 30
-                if x < minX { x = minX; dir = 1 }
-                if x > maxX { x = maxX; dir = -1 }
+                let range = roamRange(roam)
+                if x < range.lowerBound { x = range.lowerBound; dir = 1 }
+                if x > range.upperBound { x = range.upperBound; dir = -1 }
                 if tick % 24 == 0, Double.random(in: 0..<1) < 0.18 {
                     pauseUntil = Date().addingTimeInterval(.random(in: 1.5...5))
                     if Bool.random() { dir = -dir }
@@ -247,6 +247,28 @@ final class PetController: NSObject {
         }
 
         updateMousePassthrough()
+    }
+
+    /// The display the pet walks on: the one under its feet. `panel.screen` can switch to a neighboring display
+    /// while most of the window is still on this one, which made the walking bounds jump.
+    private func roamScreen() -> NSScreen? {
+        let feet = CGPoint(x: x + Self.windowSize.width / 2, y: baseline + 20)
+        return NSScreen.screens.first { $0.frame.contains(feet) } ?? panel.screen ?? NSScreen.main
+    }
+
+    /// How far the window may go while roaming. At an outer edge of the desktop the character peeks out past it,
+    /// but at an edge shared with another display the whole window stays on this one: with separate Spaces
+    /// macOS draws a window on one display only, so overhanging the neighbor cuts the character off.
+    private func roamRange(_ screen: NSScreen?) -> ClosedRange<CGFloat> {
+        guard let screen else { return x...x }
+        let v = screen.visibleFrame, f = screen.frame, w = Self.windowSize.width
+        let top = baseline + Self.windowSize.height
+        let others = NSScreen.screens.filter { $0 != screen && $0.frame.minY < top && $0.frame.maxY > baseline }
+        let leftShared = others.contains { abs($0.frame.maxX - f.minX) < 1 }
+        let rightShared = others.contains { abs($0.frame.minX - f.maxX) < 1 }
+        let minX = leftShared ? v.minX : v.minX - w / 2 + 30
+        let maxX = rightShared ? v.maxX - w : v.maxX - w / 2 - 30
+        return minX...max(minX, maxX)
     }
 
     /// Transparent parts of the window must not block clicks on whatever is underneath.
