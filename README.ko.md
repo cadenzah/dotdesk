@@ -75,6 +75,7 @@ Codex 세션 기록(~/.codex/sessions/**/rollout-*.jsonl) ───────�
 
 - **Claude Code**: `~/.claude/settings.json`(또는 각 `CLAUDE_CONFIG_DIR`)의 `hooks`에 릴레이 스크립트를 등록해요. 처음 설치할 때 `settings.json.dotdesk.backup`으로 백업하고, 지울 때는 `dotdesk-hook`이 들어간 항목만 지워요. Claude 데스크톱 앱의 Code 탭도 같은 설정을 쓰므로 함께 보여요.
 - **Codex**: `~/.codex/hooks.json`에 같은 형식으로 등록해요. Codex는 새 훅을 신뢰해야 실행하므로 `codex`의 `/hooks`에서 승인해 주세요. 훅 없이도 세션 기록 파일을 읽어서 활동을 보여줘요(이때는 권한 응답이 안 돼요).
+- **Claude 앱 채팅**: Claude 데스크톱 앱의 채팅 탭은 Anthropic 서버에서 돌아서 훅도 기록 파일도 없어요. 대신 손쉬운 사용 권한으로 앱의 채팅 사이드바를 읽어요. 답하는 중인 채팅은 줄에 스피너가 돌고, 그런 채팅을 사무실 "Claude 채팅" 구역에 보여줘요. 앱이 채팅 화면일 때만 보이고, 설정 **연동** 탭에서 끌 수 있어요.
 - 릴레이 스크립트는 DotDesk가 꺼져 있으면 아무것도 출력하지 않고 바로 끝나요. 에이전트는 평소처럼 동작해요.
 - 이벤트 서버는 `127.0.0.1`에서만 열리고, `~/.dotdesk/token`(권한 0600)의 토큰이 맞아야 요청을 받아요.
 

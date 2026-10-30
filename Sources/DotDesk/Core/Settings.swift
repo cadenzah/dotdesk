@@ -114,6 +114,8 @@ struct AppSettings: Codable {
     var claudeConfigDirs: [String] = ["~/.claude"]
     var codexHomes: [String] = ["~/.codex"]
     var watchCodexRollouts = true
+    /// Read the Claude desktop app's window (Accessibility) to show its Chat tab, which has no hooks.
+    var watchClaudeAppChats = true
     /// Claude's context window: 0 guesses from the model and what has been seen, else 200_000 or 1_000_000.
     var contextWindow = 0
     var showContextGauge = true

@@ -233,6 +233,8 @@ struct SessionOrigin: Equatable {
 
     init(pid: Int32) { self.pid = pid }
 
+    init(appBundleId: String) { self.appBundleId = appBundleId }
+
     init?(headers: [String: String]) {
         func value(_ name: String) -> String? { headers[name].flatMap { $0.isEmpty ? nil : $0 } }
         pid = value("x-dotdesk-pid").flatMap { Int32($0) }.flatMap { $0 > 1 ? $0 : nil }

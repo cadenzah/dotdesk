@@ -271,6 +271,22 @@ final class SessionStore: ObservableObject {
         sessions[key] = s
     }
 
+    /// Activity of a chat in the Claude desktop app, read from its window by ClaudeAppChatWatcher.
+    func applyAppChat(sessionId: String, update: (inout AgentSession) -> Void) {
+        let key = "claude:\(sessionId)"
+        let isNew = sessions[key] == nil
+        var s = sessions[key] ?? makeSession(key: key, provider: .claude, sessionId: sessionId, cwd: nil)
+        if isNew {
+            s.projectKey = ClaudeAppChatWatcher.projectKey
+            s.origin = SessionOrigin(appBundleId: ClaudeAppChatWatcher.bundleId)
+            settings.touchProject(s.projectKey)
+        }
+        s.lastEventAt = Date()
+        update(&s)
+        if s.workerId == nil, s.activity != .leaving { staff(&s, takeOver: isNew) }
+        sessions[key] = s
+    }
+
     private func makeSession(key: String, provider: Provider, sessionId: String, cwd: String?) -> AgentSession {
         let project = cwd.map(ProjectResolver.projectKey) ?? "(unknown)"
         let s = AgentSession(id: key, provider: provider, sessionId: sessionId, cwd: cwd, projectKey: project)

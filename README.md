@@ -75,6 +75,7 @@ Codex session logs (~/.codex/sessions/**/rollout-*.jsonl) ───────t
 
 - **Claude Code**: Registers the relay script under `hooks` in `~/.claude/settings.json` (or each `CLAUDE_CONFIG_DIR`). On first install it backs up the file to `settings.json.dotdesk.backup`, and on removal it deletes only entries containing `dotdesk-hook`. The Code tab in the Claude desktop app uses the same settings, so it shows up too.
 - **Codex**: Registers in `~/.codex/hooks.json` in the same format. Codex only runs new hooks once they're trusted, so approve them via `/hooks` in `codex`. Even without hooks, DotDesk reads the session log files to show activity (permission responses aren't available in that case).
+- **Claude app chats**: Chats in the Claude desktop app's Chat tab run on Anthropic's servers, so there are no hooks or log files. With Accessibility access, DotDesk reads the app's chat sidebar instead: a chat that is replying has a spinner on its row. Those chats appear in the office's "Claude chats" area. It only works while the app shows the Chat tab, and you can turn it off in the **Integrations** tab of Settings.
 - If DotDesk isn't running, the relay script exits immediately without printing anything, so your agents behave as usual.
 - The event server listens only on `127.0.0.1` and accepts requests only with the token in `~/.dotdesk/token` (permissions 0600).
 

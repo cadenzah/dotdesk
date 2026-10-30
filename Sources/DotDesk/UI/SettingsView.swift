@@ -566,6 +566,18 @@ struct IntegrationsTab: View {
                         "Codex asks you to review new hooks before first use. Run codex in a terminal and trust the DotDesk hooks in /hooks."))
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section(L("Claude 앱 채팅", "Claude app chats")) {
+                Toggle(L("Claude 데스크톱 앱의 채팅도 보여주기", "Also show chats in the Claude desktop app"), isOn: $settings.s.watchClaudeAppChats)
+                if !axTrusted {
+                    Button(L("손쉬운 사용 권한 주기", "Grant Accessibility access")) {
+                        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+                        _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+                    }
+                }
+                Text(L("채팅은 Anthropic 서버에서 돌아서 훅이 없어요. 대신 손쉬운 사용 권한으로 Claude 앱 사이드바를 읽어, 답하는 중인 채팅을 사무실 'Claude 채팅' 구역에 보여줘요. 앱이 채팅 화면일 때만 보이고, Code 탭을 보는 동안에는 상태가 바뀌지 않아요.",
+                        "Chats run on Anthropic's servers, so they have no hooks. Instead DotDesk reads the Claude app's sidebar with Accessibility access and shows chats that are replying in the office's \"Claude chats\" area. This only works while the app shows the Chat tab; status doesn't change while you're in the Code tab."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section(L("에이전트 창으로 가기", "Jump to agent window")) {
                 LabeledContent("Terminal · iTerm2") {
                     Text(L("탭까지 정확히 찾아요", "Finds the exact tab")).foregroundStyle(.secondary)

@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var office: OfficeWindowController!
     private var codexWatcher = CodexRolloutWatcher()
+    private var chatWatcher = ClaudeAppChatWatcher()
     private var settingsWindow: NSWindow?
     private var welcomeWindow: NSWindow?
     private var editWindow: NSWindow?
@@ -44,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DailyStats.shared.onSummaryDue = { [weak self] in self?.showSummary() }
         DailyStats.shared.start()
         codexWatcher.start()
+        chatWatcher.start()
 
         // Show/hide the office as settings and the set of sessions change.
         Publishers.CombineLatest(settings.$s.map { ($0.office.enabled, $0.office.autoHide) }.removeDuplicates(by: ==),
