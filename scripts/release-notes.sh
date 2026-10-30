@@ -21,11 +21,15 @@ REPO="${GITHUB_REPOSITORY:-$(git remote get-url origin | sed -E 's#^.*github\.co
 PREV=$(git tag --list 'v*' --merged "$REF" --sort=-v:refname | grep -vx "$TAG" | head -n 1 || true)
 if [ -n "$PREV" ]; then RANGE="$PREV..$REF"; else RANGE="$REF"; fi
 
+# 같은 범위 안에서 git revert로 되돌린 커밋은 릴리스에 없으니 빼요.
+REVERTED=$(git log --no-merges --format='%b' "$RANGE" | sed -nE 's/^This reverts commit ([0-9a-f]{40}).*/\1/p' | tr '\n' ' ')
+
 # 커밋마다 "종류<TAB>설명<TAB>해시" 한 줄로 바꿔요.
-CHANGES=$(git log --no-merges --format='%H%x1f%s%x1f%b%x1e' "$RANGE" | awk -v RS='\036' -F '\037' '
+CHANGES=$(git log --no-merges --format='%H%x1f%s%x1f%b%x1e' "$RANGE" | awk -v RS='\036' -F '\037' -v reverted=" $REVERTED " '
   {
     sub(/^\n+/, "", $1)
     if ($1 == "") next
+    if (index(reverted, " " $1 " ")) next
     if (!match($2, /^[a-z]+(\([^)]*\))?!?: */)) next
     head = substr($2, 1, RLENGTH); desc = substr($2, RLENGTH + 1)
     type = head; sub(/[(!:].*/, "", type)
