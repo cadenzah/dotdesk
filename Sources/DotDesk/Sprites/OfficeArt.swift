@@ -30,26 +30,100 @@ enum OfficeArt {
         p.fill(0, CGFloat(h - 2), CGFloat(w), 2, wallShadow)
     }
 
-    nonisolated static func skyColor(_ date: Date = Date()) -> (RGBA, Bool) {
-        let hour = Calendar.current.component(.hour, from: date)
-        switch hour {
-        case 6..<17: return (RGBA(0x9ad1ff), false)
-        case 17..<19: return (RGBA(0xffb38a), false)
-        default: return (RGBA(0x2b3a67), true)
-        }
+    /// Lets --render-preview draw the office at other times of day and year.
+    nonisolated(unsafe) static var timeOverride: Date?
+
+    nonisolated static var now: Date { timeOverride ?? Date() }
+
+    /// The sky's colour near the horizon and whether it is dark out.
+    nonisolated static func skyColor(_ date: Date = now) -> (RGBA, Bool) {
+        let t = OfficeTime(date)
+        return (t.sky.1, t.dark)
     }
 
-    static func window(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
-        let (sky, night) = skyColor()
+    static func window(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat, tick: Int = 0) {
+        let t = OfficeTime(now)
+        let (top, bottom) = t.sky
         p.fill(x, y, 26, 18, RGBA(0xffffff))
-        p.fill(x + 2, y + 2, 22, 14, sky)
-        if night {
-            for (sx, sy) in [(4, 4), (13, 7), (19, 3), (8, 11)] { p.fill(x + CGFloat(sx), y + CGFloat(sy), 1, 1, RGBA(0xfff3bf)) }
-        } else {
-            p.fill(x + 5, y + 5, 6, 2, RGBA(0xffffff)); p.fill(x + 7, y + 4, 3, 1, RGBA(0xffffff))
+        // Two bands of sky, lighter toward the horizon.
+        p.fill(x + 2, y + 2, 22, 7, top)
+        p.fill(x + 2, y + 9, 22, 7, bottom)
+        p.fill(x + 2, y + 8, 22, 1, top.mix(bottom, 0.5))
+        if t.dark {
+            for (sx, sy) in [(4, 4), (13, 7), (19, 3), (8, 11), (16, 12)] where sy < 10 || t.phase == .night {
+                let twinkle = (tick / 10 + sx) % 7 == 0
+                p.fill(x + CGFloat(sx), y + CGFloat(sy), 1, 1, twinkle ? RGBA(0xffffff) : RGBA(0xfff3bf))
+            }
+        }
+        // The sun or the moon crosses the window along a low arc as the hours go by.
+        if let (f, moon) = t.celestial {
+            let cx = x + 3 + (19 * f).rounded(), cy = y + 13 - (sin(f * .pi) * 9).rounded()
+            if moon {
+                p.fill(cx, cy, 3, 3, RGBA(0xfff3bf)); p.fill(cx + 1, cy - 1, 1, 1, RGBA(0xfff3bf)); p.fill(cx - 1, cy + 1, 1, 1, RGBA(0xfff3bf))
+                p.fill(cx + 1, cy + 1, 2, 1, top)
+            } else {
+                let sun = t.phase == .day ? RGBA(0xffe066) : RGBA(0xff922b)
+                p.fill(cx, cy - 1, 3, 5, sun); p.fill(cx - 1, cy, 5, 3, sun)
+            }
+        }
+        if t.phase == .day || t.phase == .afternoon {
+            for (i, cy) in [4, 10].enumerated() {
+                let cx = x + 2 + CGFloat((tick / 30 + i * 13) % 30) - 5
+                for (dx, dy, w) in [(1, 0, 4), (0, 1, 6)] {
+                    let x0 = max(x + 2, cx + CGFloat(dx)), x1 = min(x + 24, cx + CGFloat(dx + w))
+                    if x1 > x0 { p.fill(x0, y + CGFloat(cy + dy), x1 - x0, 1, RGBA(0xffffff)) }
+                }
+            }
+        }
+        if let (color, count) = t.season.particle {
+            for i in 0..<count {
+                let px = x + 2 + CGFloat((i * 7 + tick / 4 + (i % 2) * tick / 9) % 22)
+                let py = y + 2 + CGFloat((i * 5 + tick / 3) % 14)
+                p.fill(px, py, 1, 1, color)
+            }
         }
         p.fill(x + 12, y + 2, 2, 14, RGBA(0xffffff))
         p.fill(x - 1, y + 18, 28, 2, wallTrim)
+    }
+
+    /// Seasonal things on a window sill: a jack-o'-lantern before Halloween, a little tree before Christmas.
+    static func sillDecoration(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
+        switch OfficeTime(now).holiday {
+        case .halloween:
+            let o = RGBA(0xf76707), d = RGBA(0xd9480f), face = RGBA(0xffe066)
+            p.fill(x + 3, y - 1, 1, 2, RGBA(0x2b8a3e))
+            p.fill(x + 1, y + 1, 6, 4, o); p.fill(x, y + 2, 8, 2, o)
+            p.fill(x + 2, y + 1, 1, 4, d); p.fill(x + 5, y + 1, 1, 4, d)
+            p.fill(x + 2, y + 2, 1, 1, face); p.fill(x + 5, y + 2, 1, 1, face); p.fill(x + 3, y + 4, 2, 1, face)
+        case .christmas:
+            let g = RGBA(0x2f9e44)
+            p.fill(x + 3, y - 4, 1, 1, RGBA(0xffd43b))
+            p.fill(x + 3, y - 3, 1, 2, g); p.fill(x + 2, y - 1, 3, 2, g); p.fill(x + 1, y + 1, 5, 2, g); p.fill(x, y + 3, 7, 1, g)
+            p.fill(x + 3, y + 4, 1, 1, woodDark)
+            p.fill(x + 2, y, 1, 1, RGBA(0xff6b6b)); p.fill(x + 4, y + 2, 1, 1, RGBA(0x74c0fc)); p.fill(x + 1, y + 3, 1, 1, RGBA(0xffd43b))
+        case nil:
+            break
+        }
+    }
+
+    /// A pizza box on the desk of someone working late.
+    static func pizzaBox(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
+        p.fill(x, y, 11, 5, RGBA(0x8f6b3a))
+        p.fill(x + 1, y, 9, 4, RGBA(0xd8b27a))
+        p.fill(x + 3, y + 1, 5, 2, RGBA(0xe03131))
+        p.fill(x + 4, y + 1, 1, 1, RGBA(0xffe066))
+    }
+
+    /// How dark the room gets after sunset, and the light pools that stay bright.
+    static func nightShade(_ p: PixelContext, _ w: Int, _ h: Int, lights: [CGRect]) {
+        let t = OfficeTime(now)
+        guard t.shade > 0 else { return }
+        p.ctx.saveGState()
+        p.ctx.setFillColor(RGBA(0x1b2550).cg.copy(alpha: t.shade)!)
+        p.ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        p.ctx.setFillColor(RGBA(0xffe8a3).cg.copy(alpha: t.shade * 0.4)!)
+        for r in lights { p.ctx.fillEllipse(in: r) }
+        p.ctx.restoreGState()
     }
 
     static func door(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
@@ -64,9 +138,9 @@ enum OfficeArt {
         if let img = SpriteLibrary.shared.furniture("CLOCK", "CLOCK.png") { p.image(img, x, y); return }
         p.fill(x + 1, y, 8, 10, RGBA(0x495057)); p.fill(x, y + 1, 10, 8, RGBA(0x495057))
         p.fill(x + 1, y + 1, 8, 8, RGBA(0xffffff))
-        let now = Calendar.current.dateComponents([.hour, .minute], from: Date())
+        let time = Calendar.current.dateComponents([.hour, .minute], from: now)
         p.fill(x + 4, y + 2, 1, 3, RGBA(0x212529))
-        let m = (now.minute ?? 0) / 15
+        let m = (time.minute ?? 0) / 15
         let hands: [(CGFloat, CGFloat)] = [(4, 2), (5, 4), (4, 5), (2, 4)]
         p.fill(x + hands[m].0, y + hands[m].1, 2, 1, RGBA(0xe03131))
     }
@@ -207,7 +281,7 @@ enum OfficeArt {
         }
     }
 
-    /// A floor lamp with a warm shade, glowing at night.
+    /// A floor lamp with a warm shade, glowing when it's dark.
     static func floorLamp(_ p: PixelContext, _ x: CGFloat, _ y: CGFloat) {
         let night = skyColor().1
         if night { p.fill(x - 2, y + 5, 10, 3, RGBA(0xfff3bf).mix(RGBA(0xdee2e6), 0.5)) }

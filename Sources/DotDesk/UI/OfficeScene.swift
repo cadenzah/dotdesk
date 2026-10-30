@@ -645,7 +645,10 @@ final class OfficeSimulation: ObservableObject {
         OfficeArt.floor(p, W, H, from: Int(OfficeLayout.wallH))
         OfficeArt.wall(p, width: W, height: Int(OfficeLayout.wallH))
         OfficeArt.door(p, OfficeLayout.margin + 4, 4)
-        for wx in L.windows { OfficeArt.window(p, wx, 6) }
+        for wx in L.windows { OfficeArt.window(p, wx, 6, tick: tick) }
+        if let wx = L.windows.last { OfficeArt.sillDecoration(p, wx + 3, 19) }
+        let time = OfficeTime(OfficeArt.now)
+        var lights: [CGRect] = []
         // Above the coffee machine, where the sofa sitters' bubbles don't cover it.
         OfficeArt.clock(p, L.lounge.minX + 3, 10)
         OfficeArt.whiteboard(p, L.whiteboard, busyByHour: DailyStats.shared.today.busyByHour)
@@ -685,7 +688,9 @@ final class OfficeSimulation: ObservableObject {
                 OfficeArt.monitor(p, c.minX + 4, c.minY + 24, activity: self.actorSeated(key) ? s?.activity : nil,
                                   tick: self.tick, accent: s.map { self.settings.projectColor($0.projectKey) } ?? RGBA(0x868e96))
                 if let acc = s?.account { OfficeArt.flag(p, c.minX + 40, c.minY + 29, self.settings.accountColor(acc)) }
+                if time.lateNight, s != nil, self.actorSeated(key) { OfficeArt.pizzaBox(p, c.minX + 29, c.minY + 41) }
             }))
+            if s != nil, actorSeated(key) { lights.append(CGRect(x: c.minX - 2, y: c.minY + 16, width: 34, height: 30)) }
         }
 
         // Lounge furniture
@@ -693,7 +698,11 @@ final class OfficeSimulation: ObservableObject {
         let sofa = L.sofa, beanbag = L.beanbag
         draws.append((sofa.maxY, { OfficeArt.sofa(p, sofa.minX, sofa.minY) }))
         draws.append((beanbag.maxY, { OfficeArt.beanbag(p, beanbag.minX, beanbag.minY) }))
-        if has(.lamp) { let lp = L.lamp; draws.append((lp.y + 22, { OfficeArt.floorLamp(p, lp.x, lp.y) })) }
+        if has(.lamp) {
+            let lp = L.lamp
+            draws.append((lp.y + 22, { OfficeArt.floorLamp(p, lp.x, lp.y) }))
+            lights.append(CGRect(x: lp.x - 14, y: lp.y - 6, width: 34, height: 36))
+        }
         // Someone alone on the sofa lies down; a second sleeper makes them sit up.
         let sofaCount = actors.values.filter { if case .rest(.sofa) = $0.goal { return true }; return false }.count
         draws.append((ly + 24, { OfficeArt.coffee(p, lx + 2, ly + 8) }))
@@ -791,6 +800,7 @@ final class OfficeSimulation: ObservableObject {
         }
 
         for (_, d) in draws.sorted(by: { $0.0 < $1.0 }) { d() }
+        OfficeArt.nightShade(p, W, H, lights: lights)
         drawHandoffs(p, L)
         for b in bubbles { b() }
         hits = newHits

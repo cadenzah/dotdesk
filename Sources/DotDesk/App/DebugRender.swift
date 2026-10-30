@@ -28,6 +28,7 @@ enum DebugRender {
         renderPetRests(to: out)
         renderLimits(to: out)
         renderHats(to: out)
+        renderTimesOfDay(to: out)
         for tab in SettingsTab.allCases {
             SettingsNavigation.shared.tab = tab
             let host = NSHostingView(rootView: SettingsView())
@@ -217,6 +218,21 @@ enum DebugRender {
     }
 
     /// The desktop pet while its agent rests, once per pastime the office can give it.
+    /// The office at different times of day and year (windows, room light, late-night pizza, sill decorations).
+    private static func renderTimesOfDay(to out: URL) {
+        let sim = OfficeSimulation(planner: RestPlanner(seed: 7))
+        sim.advance(200)
+        let cal = Calendar.current
+        let year = cal.component(.year, from: Date())
+        for (name, month, day, hour, minute) in [("dawn-spring", 4, 10, 6, 0), ("day-summer", 7, 15, 11, 30), ("afternoon", 7, 15, 17, 0),
+                                                 ("sunset-halloween", 10, 30, 18, 40), ("dusk", 10, 30, 20, 0), ("late-christmas", 12, 20, 23, 30)] {
+            OfficeArt.timeOverride = cal.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))
+            sim.advance(8)
+            if let f = sim.frame { write(f, scale: 3, to: out.appendingPathComponent("time-\(name).png")) }
+        }
+        OfficeArt.timeOverride = nil
+    }
+
     /// Each model hat on each built-in look, facing down, right, left and up, standing, typing and napping.
     private static func renderHats(to out: URL) {
         let poses: [(Facing, Pose)] = [(.down, .stand), (.right, .walk), (.left, .stand), (.up, .stand), (.down, .type), (.down, .nap)]
