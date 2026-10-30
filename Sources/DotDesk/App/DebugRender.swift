@@ -26,7 +26,6 @@ enum DebugRender {
         renderSummary(to: out)
         renderOffice(to: out)
         renderPetRests(to: out)
-        renderLimits(to: out)
         renderHats(to: out)
         renderTimesOfDay(to: out)
         for tab in SettingsTab.allCases {
@@ -217,7 +216,6 @@ enum DebugRender {
         store.demoRemove("demo-6")
     }
 
-    /// The desktop pet while its agent rests, once per pastime the office can give it.
     /// The office at different times of day and year (windows, room light, late-night pizza, sill decorations).
     private static func renderTimesOfDay(to out: URL) {
         let sim = OfficeSimulation(planner: RestPlanner(seed: 7))
@@ -252,35 +250,7 @@ enum DebugRender {
         if let img = p.makeImage() { write(img, scale: 4, to: out.appendingPathComponent("hats.png")) }
     }
 
-    /// Usage limit gauges in a pet bubble and the office detail popover, live and from an old cache.
-    private static func renderLimits(to out: URL) {
-        let now = Date()
-        let live = [
-            LimitWindow(id: "five_hour", label: L("5시간", "5-hour"), order: 0, percent: 63, resetsAt: now.addingTimeInterval(2 * 3600 + 14 * 60), updatedAt: now, live: true),
-            LimitWindow(id: "seven_day", label: L("주간", "Weekly"), order: 1, percent: 91, resetsAt: now.addingTimeInterval(3 * 86400 + 5 * 3600), updatedAt: now, live: true),
-        ]
-        var old = live.map { w -> LimitWindow in var w = w; w.live = false; w.updatedAt = now.addingTimeInterval(-3 * 3600); return w }
-        old.append(LimitWindow(id: "weekly_scoped:Fable", label: L("주간 · Fable", "Weekly · Fable"), order: 2, percent: 12, resetsAt: now.addingTimeInterval(-600),
-                               updatedAt: now.addingTimeInterval(-3 * 3600), live: false))
-        var usage = ContextUsage()
-        usage.contextTokens = 132_000
-        for (name, windows) in [("live", live), ("cached", old)] {
-            let bubble = VStack(alignment: .leading, spacing: 2) {
-                Text("콩이 · 작성 중").font(.system(size: 11, weight: .semibold))
-                Text("Pet.swift · dotdesk · Claude · 우리팀").font(.system(size: 10)).foregroundStyle(.secondary)
-                ContextGauge(usage: usage).padding(.top, 2)
-                LimitGauges(windows: windows)
-                LimitGauges(windows: windows, compact: true).frame(width: 40).padding(.top, 4)
-            }
-            .padding(.horizontal, 8).padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 8).fill(.regularMaterial))
-            .padding(10)
-            renderView(bubble, width: 280, to: out.appendingPathComponent("limits-bubble-\(name).png"))
-        }
-        UsageLimits.shared.usePreview("demo:claude", live)
-        renderView(SessionDetail(sessionKey: "claude:demo-1"), width: 320, to: out.appendingPathComponent("limits-detail.png"))
-    }
-
+    /// The desktop pet while its agent rests, once per pastime the office can give it.
     private static func renderPetRests(to out: URL) {
         SessionStore.shared.demoSleep(["claude:demo-1"])
         let rests: [(OfficeLayout.RestSpot, OfficeSimulation.Pastime)] = [
