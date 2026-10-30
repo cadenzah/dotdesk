@@ -14,6 +14,7 @@ A macOS app that shows the AI coding agents working on your Mac (Claude Code, Co
 - **Teamwork** — When an agent calls a subagent, the teammate walks up to the desk, they take turns talking, and the papers change hands; when the teammate is done they hand the results back before leaving. Messages between agents (`SendMessage`, Codex `send_input`) fly across the office as paper planes, and the pet says when work was handed off or brought back.
 - **A growing office** — The office collects decorations as you work with your agents: a picture frame after the first finished task, string lights after three days, a floor lamp after 100 requests, a trophy shelf for passing tests (more trophies at 50 and 200), a cat on the window sill after ten long tasks, and a plaque at 100 hours. The pet announces each one, and Settings → **General** shows what's next.
 - **Context gauge** — Reads each session's transcript to show how full its context window is, as a bar in the pet's speech bubble and under each name tag in the office, along with the tokens generated so far. Past 80% the character starts to sweat, and while the conversation is being compacted they pack papers into a box. Claude's window is guessed (1M when the model says `[1m]` or a session went past 200K, otherwise 200K) and can be set in the **General** tab; Codex reports its own.
+- **Usage limits** — Under the context gauge, shows how much of your plan's 5-hour and weekly limits (and per-model weekly limits) that agent's account has used, and when each one resets. Providers report a percentage, not token counts. For Claude, connect the status line in the **Integrations** tab to get live values while a CLI session runs; otherwise DotDesk shows the last value Claude Code saved, with how old it is. Codex limits come from its session logs.
 - **Multiple accounts and organizations** — Reads the signed-in account for each `CLAUDE_CONFIG_DIR`/`CODEX_HOME` and tells them apart with desk flag colors and name tags.
 - **Pick your characters** — Each new agent gets a random mix of hair and outfit. Or choose per agent or per project from 8 built-in pixel presets, [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) characters, or the Pokémon collected by [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).
 
@@ -63,7 +64,7 @@ To try it without a real agent, turn on **Demo agent** in the menu bar, or run `
 
 ### Uninstall
 
-1. In the Settings **Integrations** tab, click **Remove hooks** for each config folder. Only entries containing `dotdesk-hook` are removed.
+1. In the Settings **Integrations** tab, click **Remove hooks** for each config folder. Only entries containing `dotdesk-hook` are removed. If you connected the status line, click **Disconnect** too; your previous status line comes back.
 2. Quit the app and delete `DotDesk.app`, `~/.dotdesk` (relay script and token), and `~/Library/Application Support/DotDesk` (settings).
 
 ## How it works
@@ -76,6 +77,7 @@ Codex session logs (~/.codex/sessions/**/rollout-*.jsonl) ───────t
 - **Claude Code**: Registers the relay script under `hooks` in `~/.claude/settings.json` (or each `CLAUDE_CONFIG_DIR`). On first install it backs up the file to `settings.json.dotdesk.backup`, and on removal it deletes only entries containing `dotdesk-hook`. The Code tab in the Claude desktop app uses the same settings, so it shows up too.
 - **Codex**: Registers in `~/.codex/hooks.json` in the same format. Codex only runs new hooks once they're trusted, so approve them via `/hooks` in `codex`. Even without hooks, DotDesk reads the session log files to show activity (permission responses aren't available in that case).
 - **Claude app chats**: Chats in the Claude desktop app's Chat tab run on Anthropic's servers, so there are no hooks or log files. With Accessibility access, DotDesk reads the app's chat sidebar instead: a chat that is replying has a spinner on its row. Those chats appear in the office's "Claude chats" area. It only works while the app shows the Chat tab, and you can turn it off in the **Integrations** tab of Settings.
+- **Status line (optional)**: Plan usage limits aren't in hook payloads, but they are in Claude Code's status line input. **Connect status line** wraps the `statusLine` command in `settings.json` with `~/.dotdesk/dotdesk-statusline.sh`, which forwards that input to DotDesk and then runs your previous status line command, so what you see doesn't change. **Disconnect** restores the previous setting (kept in `~/.dotdesk/statusline-backup.json`).
 - If DotDesk isn't running, the relay script exits immediately without printing anything, so your agents behave as usual.
 - The event server listens only on `127.0.0.1` and accepts requests only with the token in `~/.dotdesk/token` (permissions 0600).
 

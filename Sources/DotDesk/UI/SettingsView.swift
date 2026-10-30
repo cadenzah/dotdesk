@@ -83,7 +83,7 @@ struct GeneralTab: View {
                 DecorationList()
             }
             Section(L("컨텍스트", "Context")) {
-                Toggle(L("컨텍스트 게이지 보이기", "Show context gauge"), isOn: $settings.s.showContextGauge)
+                Toggle(L("컨텍스트·사용량 한도 게이지 보이기", "Show context and usage limit gauges"), isOn: $settings.s.showContextGauge)
                 Picker(L("Claude 컨텍스트 크기", "Claude context size"), selection: $settings.s.contextWindow) {
                     Text(L("자동", "Auto")).tag(0)
                     Text("200K").tag(200_000)
@@ -546,6 +546,14 @@ struct IntegrationsTab: View {
                         "Adds only DotDesk entries to the hooks in settings.json (with a one-time .dotdesk.backup). Also applies to the Code tab in the desktop app, and takes effect right away in sessions already open."))
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section(L("사용량 한도", "Usage limits")) {
+                ForEach(settings.s.claudeConfigDirs, id: \.self) { dir in
+                    StatusLineRow(configDir: dir, refresh: refresh, message: $message, bump: { refresh += 1 })
+                }
+                Text(L("요금제의 5시간·주간 한도를 펫 말풍선과 사무실 컨텍스트 게이지 아래에 보여줘요. Claude는 .claude.json에 남은 마지막 조회값을 읽고, 상태줄을 연결하면 CLI 세션이 도는 동안 실시간으로 받아요. 쓰던 상태줄은 그대로 보이고, 연결을 끊으면 원래대로 돌아가요. Codex는 세션 기록 파일에서 읽어요.",
+                        "Shows your plan's 5-hour and weekly limits under the context gauge in the pet's bubble and the office. For Claude, DotDesk reads the last lookup saved in .claude.json; connect the status line to get live values while a CLI session runs. Your own status line still shows, and disconnecting restores it. Codex limits come from its session log files."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Codex") {
                 ForEach(settings.s.codexHomes, id: \.self) { home in
                     HookRow(title: abbreviatePath(expandPath(home)), url: HookInstaller.codexHooksURL(home: home), refresh: refresh,
@@ -640,6 +648,34 @@ struct HookRow: View {
                 }
             }
             if let remove { Button(role: .destructive) { remove() } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless) }
+        }
+        .id(refresh)
+    }
+}
+
+/// Connects Claude Code's status line, whose input carries live plan usage limits.
+struct StatusLineRow: View {
+    let configDir: String
+    let refresh: Int
+    @Binding var message: String?
+    let bump: () -> Void
+
+    var body: some View {
+        let installed = StatusLineInstaller.isInstalled(configDir: configDir)
+        HStack {
+            Image(systemName: installed ? "checkmark.circle.fill" : "circle").foregroundStyle(installed ? .green : .secondary)
+            VStack(alignment: .leading) {
+                Text(abbreviatePath(expandPath(configDir)))
+                Text(L("상태줄(statusLine)", "Status line")).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(installed ? L("연결 끊기", "Disconnect") : L("상태줄 연결", "Connect status line")) {
+                do {
+                    if installed { try StatusLineInstaller.uninstall(configDir: configDir) } else { try StatusLineInstaller.install(configDir: configDir) }
+                    message = nil
+                } catch { message = error.localizedDescription }
+                bump()
+            }
         }
         .id(refresh)
     }

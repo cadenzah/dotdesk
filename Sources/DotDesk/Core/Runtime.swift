@@ -7,6 +7,9 @@ enum Runtime {
     static let hookScript = dir.appendingPathComponent("dotdesk-hook.sh")
     static let portFile = dir.appendingPathComponent("port")
     static let tokenFile = dir.appendingPathComponent("token")
+    static let statusLineScript = dir.appendingPathComponent("dotdesk-statusline.sh")
+    /// The status line each Claude settings.json had before DotDesk wrapped it, keyed by that file's path.
+    static let statusLineBackup = dir.appendingPathComponent("statusline-backup.json")
 
     static let appSupport: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -33,6 +36,10 @@ enum Runtime {
             try? hookScriptSource.write(to: hookScript, atomically: true, encoding: .utf8)
         }
         try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hookScript.path)
+        if (try? String(contentsOf: statusLineScript, encoding: .utf8)) != statusLineScriptSource {
+            try? statusLineScriptSource.write(to: statusLineScript, atomically: true, encoding: .utf8)
+        }
+        try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: statusLineScript.path)
     }
 
     static func writePort(_ port: UInt16) {
@@ -81,6 +88,31 @@ enum Runtime {
       -H "X-DotDesk-Tmux: ${TMUX:-}" \
       -H "X-DotDesk-Tmux-Pane: ${TMUX_PANE:-}" \
       --data-binary @- "http://127.0.0.1:$port/hook/$provider" 2>/dev/null
+    exit 0
+    """#
+
+    /// Claude Code's status line command. Its input carries the plan usage limits (`rate_limits`), which hooks don't.
+    /// Sends that input to DotDesk in the background, then runs the status line that was set before, if any,
+    /// so the user's own status line looks the same.
+    static let statusLineScriptSource = #"""
+    #!/bin/sh
+    # DotDesk status line relay: passes Claude Code's status line input to the DotDesk app,
+    # then prints the status line command that was configured before (given as $1), if any.
+    input=$(cat)
+    dir="$HOME/.dotdesk"
+    if [ -r "$dir/port" ] && [ -r "$dir/token" ]; then
+      port=$(cat "$dir/port")
+      token=$(cat "$dir/token")
+      printf '%s' "$input" | curl -s --connect-timeout 1 --max-time 2 \
+        -H 'Expect:' -H 'Content-Type: application/json' \
+        -H "X-DotDesk-Token: $token" \
+        -H "X-DotDesk-Event: StatusLine" \
+        -H "X-DotDesk-Config-Dir: ${CLAUDE_CONFIG_DIR:-}" \
+        --data-binary @- "http://127.0.0.1:$port/hook/claude" >/dev/null 2>&1 &
+    fi
+    if [ -n "$1" ]; then
+      printf '%s' "$input" | /bin/sh -c "$1"
+    fi
     exit 0
     """#
 }

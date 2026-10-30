@@ -141,6 +141,11 @@ final class CodexRolloutWatcher {
                 s.setActivity(.done, detail: "")
                 store.finishTurn(&s)
             }
+        case ("event_msg", "token_count"):
+            if let rl = p["rate_limits"] as? [String: Any] {
+                let at = (obj["timestamp"] as? String).flatMap(UsageLimits.parseISO) ?? Date()
+                UsageLimits.shared.applyCodex(rl, home: home, at: at)
+            }
         case ("event_msg", "turn_aborted"):
             change = { s in s.setActivity(.idle, detail: L("중단됨", "Interrupted")) }
         case ("event_msg", let e) where e.contains("approval_request"):

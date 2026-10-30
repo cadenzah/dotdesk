@@ -74,6 +74,7 @@ struct OfficeView: View {
     @ObservedObject private var settings = SettingsStore.shared
     @ObservedObject private var integration = IntegrationStatus.shared
     @ObservedObject private var stats = DailyStats.shared
+    @ObservedObject private var limits = UsageLimits.shared
     @State private var selected: String?
 
     var body: some View {
@@ -127,6 +128,9 @@ struct OfficeView: View {
                                 .fixedSize()
                             if settings.s.showContextGauge, let u = s.usage, u.contextTokens != nil {
                                 ContextGauge(usage: u, compact: true).frame(width: OfficeLayout.deskW * scale * 0.4)
+                            }
+                            if settings.s.showContextGauge, case let w = limits.windows(s.account), !w.isEmpty {
+                                LimitGauges(windows: w, compact: true).frame(width: OfficeLayout.deskW * scale * 0.4)
                             }
                         }
                         .frame(width: OfficeLayout.deskW * scale)
@@ -299,6 +303,9 @@ struct SessionDetail: View {
                             if u.contextTokens != nil { ContextGauge(usage: u) } else { Text(L("정리한 뒤 다시 세는 중", "Recounting after compaction")) }
                         }
                         GridRow { Text(L("출력 토큰", "Output tokens")).foregroundStyle(.secondary); Text(formatTokens(u.outputTokens)) }
+                    }
+                    if case let w = UsageLimits.shared.windows(s.account), !w.isEmpty {
+                        GridRow(alignment: .top) { Text(L("사용량 한도", "Usage limits")).foregroundStyle(.secondary); LimitGauges(windows: w) }
                     }
                     if !s.subagents.isEmpty {
                         GridRow { Text(L("팀원", "Teammates")).foregroundStyle(.secondary); Text(s.subagents.map { "\($0.type)(\($0.activity.label))" }.joined(separator: ", ")) }

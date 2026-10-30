@@ -14,6 +14,7 @@ final class PetModel: ObservableObject {
     @Published var hovering = false
     @Published var permissions: [PendingPermission] = []
     @Published var usage: ContextUsage?
+    @Published var limits: [LimitWindow] = []
 }
 
 /// One floating character on the desktop. `sessionKey == nil` means "follow the most recently active agent".
@@ -136,6 +137,8 @@ final class PetController: NSObject {
         }
         let usage = settings.s.showContextGauge ? s?.usage : nil
         if model.usage != usage { model.usage = usage }
+        let limits = settings.s.showContextGauge ? UsageLimits.shared.windows(s?.account) : []
+        if model.limits != limits { model.limits = limits }
         let sweating = s.flatMap(settings.contextFraction).map { $0 >= 0.8 } ?? false
             && activity != .sleeping && activity != .compacting
         model.showSpeech = model.permissions.isEmpty
@@ -436,6 +439,9 @@ struct PetView: View {
                     if let u = model.usage, u.contextTokens != nil {
                         ContextGauge(usage: u).padding(.top, 2)
                     }
+                    if !model.limits.isEmpty {
+                        LimitGauges(windows: model.limits).padding(.top, model.usage?.contextTokens == nil ? 2 : 0)
+                    }
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .background(RoundedRectangle(cornerRadius: 8).fill(.regularMaterial))
@@ -605,5 +611,56 @@ struct ContextGauge: View {
 
     static func color(_ f: Double) -> Color {
         f >= 0.8 ? .red : f >= 0.6 ? .orange : .green
+    }
+}
+
+/// Plan usage limits of the agent's account (5-hour, weekly…), one bar each with time to reset.
+/// Compact draws only the fullest window as a thin bar, for the office name tag.
+struct LimitGauges: View {
+    let windows: [LimitWindow]
+    var compact = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { ctx in
+            let now = ctx.date
+            if compact {
+                let f = (windows.map { $0.shownPercent(now) }.max() ?? 0) / 100
+                bar(f).frame(height: 3)
+            } else {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(windows) { w in
+                        HStack(spacing: 5) {
+                            bar(w.shownPercent(now) / 100).frame(width: 70, height: 4)
+                            Text(text(w, now)).font(.system(size: 9).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    }
+                    if let oldest = windows.filter({ !$0.live }).map(\.updatedAt).min(), windows.allSatisfy({ $0.isStale(now) }) {
+                        Text(L("\(formatAgo(oldest, now: now)) 기준", "As of \(formatAgo(oldest, now: now))"))
+                            .font(.system(size: 8)).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+        .help(windows.map { text($0, Date()) }.joined(separator: "\n"))
+    }
+
+    private func bar(_ f: Double) -> some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.12))
+                Capsule().fill(Self.color(f)).frame(width: max(2, g.size.width * min(1, f)))
+            }
+        }
+    }
+
+    private func text(_ w: LimitWindow, _ now: Date) -> String {
+        if w.hasReset(now) { return L("\(w.label) · 리셋됨", "\(w.label) · reset") }
+        let pct = "\(w.label) \(Int(w.percent.rounded()))%"
+        guard let r = w.resetsAt else { return pct }
+        return L("\(pct) · \(formatResetIn(r, now: now)) 리셋", "\(pct) · resets \(formatResetIn(r, now: now))")
+    }
+
+    static func color(_ f: Double) -> Color {
+        f >= 0.9 ? .red : f >= 0.7 ? .orange : .blue
     }
 }

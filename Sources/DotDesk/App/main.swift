@@ -14,6 +14,23 @@ MainActor.assumeIsolated {
         try! FileManager.default.copyItem(atPath: dir + "/settings.json", toPath: dir + "/after-install.json")
         try! HookInstaller.uninstall(at: HookInstaller.claudeSettingsURL(configDir: dir))
         print("after uninstall:", HookInstaller.isInstalled(at: HookInstaller.claudeSettingsURL(configDir: dir)))
+        try! StatusLineInstaller.install(configDir: dir)
+        print("status line installed:", StatusLineInstaller.isInstalled(configDir: dir))
+        try! FileManager.default.copyItem(atPath: dir + "/settings.json", toPath: dir + "/after-statusline.json")
+        try! StatusLineInstaller.uninstall(configDir: dir)
+        print("status line after uninstall:", StatusLineInstaller.isInstalled(configDir: dir))
+        exit(0)
+    }
+    if args.contains("--dump-limits") {
+        // Prints the usage limits read from .claude.json and Codex rollouts for the configured folders.
+        UsageLimits.shared.start()
+        RunLoop.main.run(until: Date().addingTimeInterval(1.5))
+        for (account, windows) in UsageLimits.shared.byAccount.sorted(by: { $0.key < $1.key }) {
+            print(account)
+            for w in windows.values.sorted(by: { $0.order < $1.order }) {
+                print("  \(w.label): \(w.percent)% resets \(w.resetsAt.map { "\($0)" } ?? "-") as of \(w.updatedAt) live=\(w.live)")
+            }
+        }
         exit(0)
     }
     if let i = args.firstIndex(of: "--render-icon"), i + 1 < args.count {

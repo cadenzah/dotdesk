@@ -28,7 +28,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         server = EventServer(token: Runtime.token)
         server.handler = { [weak self] req, responder in
-            MainActor.assumeIsolated { self?.store.handleHook(req, responder: responder) }
+            MainActor.assumeIsolated {
+                // The status line relay only reports usage limits; it isn't a session event.
+                if req.event == "StatusLine" {
+                    UsageLimits.shared.applyStatusLine(req.json, configDir: req.configDir)
+                    responder.reply()
+                    return
+                }
+                self?.store.handleHook(req, responder: responder)
+            }
         }
         server.snapshotHandler = { MainActor.assumeIsolated { AppDelegate.snapshotWindows() } }
         server.start(preferredPort: 47823) { [weak self] port in
@@ -46,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DailyStats.shared.start()
         codexWatcher.start()
         chatWatcher.start()
+        UsageLimits.shared.start()
 
         // Show/hide the office as settings and the set of sessions change.
         Publishers.CombineLatest(settings.$s.map { ($0.office.enabled, $0.office.autoHide) }.removeDuplicates(by: ==),
