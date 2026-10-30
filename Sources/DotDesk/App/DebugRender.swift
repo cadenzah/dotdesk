@@ -27,6 +27,7 @@ enum DebugRender {
         renderOffice(to: out)
         renderPetRests(to: out)
         renderLimits(to: out)
+        renderHats(to: out)
         for tab in SettingsTab.allCases {
             SettingsNavigation.shared.tab = tab
             let host = NSHostingView(rootView: SettingsView())
@@ -216,6 +217,25 @@ enum DebugRender {
     }
 
     /// The desktop pet while its agent rests, once per pastime the office can give it.
+    /// Each model hat on each built-in look, facing down, right, left and up, standing, typing and napping.
+    private static func renderHats(to out: URL) {
+        let poses: [(Facing, Pose)] = [(.down, .stand), (.right, .walk), (.left, .stand), (.up, .stand), (.down, .type), (.down, .nap)]
+        let looks = BuiltinCharacters.looks.indices
+        let p = PixelContext(poses.count * ModelHat.allCases.count * 18, looks.count * 36)
+        for (li, look) in looks.enumerated() {
+            let skin = SheetSkin(sheet: BuiltinCharacters.sheet(look: look, shirt: Palette.project[li % Palette.project.count]))!
+            for (hi, hat) in ModelHat.allCases.enumerated() {
+                for (pi, (facing, pose)) in poses.enumerated() {
+                    let (img, flip) = skin.frame(facing: facing, pose: pose, tick: 0)
+                    let r = CGRect(x: (hi * poses.count + pi) * 18 + 1, y: li * 36 + 4, width: 16, height: 32)
+                    p.image(img, r.minX, r.minY, flipX: flip)
+                    hat.draw(p, on: img, in: r, flip: flip)
+                }
+            }
+        }
+        if let img = p.makeImage() { write(img, scale: 4, to: out.appendingPathComponent("hats.png")) }
+    }
+
     /// Usage limit gauges in a pet bubble and the office detail popover, live and from an old cache.
     private static func renderLimits(to out: URL) {
         let now = Date()

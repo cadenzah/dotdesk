@@ -84,6 +84,7 @@ struct GeneralTab: View {
             }
             Section(L("컨텍스트", "Context")) {
                 Toggle(L("컨텍스트·사용량 한도 게이지 보이기", "Show context and usage limit gauges"), isOn: $settings.s.showContextGauge)
+                Toggle(L("모델별 모자 씌우기 (Opus 왕관 · Sonnet 베레모 · Haiku 새싹 · Fable 마법사 모자)", "Hats by model (Opus crown · Sonnet beret · Haiku sprout · Fable wizard hat)"), isOn: $settings.s.showModelHats)
                 Picker(L("Claude 컨텍스트 크기", "Claude context size"), selection: $settings.s.contextWindow) {
                     Text(L("자동", "Auto")).tag(0)
                     Text("200K").tag(200_000)

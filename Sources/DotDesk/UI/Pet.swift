@@ -207,6 +207,7 @@ final class PetController: NSObject {
         }
         if pose == .cheer && !skin.hasCheerFrame { pose = .stand }
         let (img, flip) = skin.frame(facing: facing, pose: pose, tick: tick / 2)
+        let hat = settings.s.showModelHats ? ModelHat(model: s?.model ?? s?.usage?.model) : nil
         let icon = commute == nil ? reaction?.icon ?? pastime?.icon ?? activity.icon : nil
         let shake: CGFloat = reaction?.shakes == true ? ((tick / 2) % 2 == 0 ? -1 : 1) : 0
 
@@ -224,6 +225,7 @@ final class PetController: NSObject {
             let rest = CGRect(x: 12, y: 18, width: 16, height: 32)
             let r = rest.offsetBy(dx: shake, dy: bounce)
             p.image(img, r.minX, r.minY, flipX: flip)
+            hat?.draw(p, on: img, in: r, flip: flip)
             if reaction == .celebrate { OfficeArt.confetti(p, rest, tick: tick / 2) }
             if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: true, tick: tick / 2) }
             if sweating { OfficeArt.sweat(p, r, sheet: true, tick: tick / 2) }
@@ -240,6 +242,7 @@ final class PetController: NSObject {
             let rest = CGRect(x: (CGFloat(cw) - w) / 2, y: CGFloat(ch) - 4 - h, width: w, height: h)
             let r = rest.offsetBy(dx: shake * 2, dy: bounce * 2)
             p.image(img, r.minX, r.minY, w, h, flipX: flip)
+            hat?.draw(p, on: img, in: r, flip: flip, px: 2)
             if reaction == .celebrate { OfficeArt.confetti(p, rest, tick: tick / 2) }
             if let pastime, !walking { OfficeArt.held(pastime, p, r, sheet: false, tick: tick / 2) }
             if sweating { OfficeArt.sweat(p, r, sheet: false, tick: tick / 2) }

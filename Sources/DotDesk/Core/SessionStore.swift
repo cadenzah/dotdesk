@@ -547,6 +547,7 @@ final class SessionStore: ObservableObject {
             s.projectKey = cwd
             s.account = AccountInfo(key: "demo:\(p.rawValue)", provider: p, email: "demo@example.com",
                                     orgName: p == .claude ? "Demo Org" : nil, plan: nil, configDir: "~")
+            s.model = ["demo-1": "claude-opus-4-1", "demo-2": "claude-sonnet-4-5", "demo-3": "gpt-5-codex", "demo-4": "claude-haiku-4-5"][id]
             staff(&s, takeOver: false)
             sessions[key] = s
         }

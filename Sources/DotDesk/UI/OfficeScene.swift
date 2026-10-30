@@ -759,10 +759,12 @@ final class OfficeSimulation: ObservableObject {
             }
             let z = seated ? (L.seats[a.sessionKey]?.cell.minY ?? 0) + 61
                 : onSofa ? sofa.maxY + 0.5 : onBeanbag ? beanbag.maxY + 0.5 : a.pos.y
+            let hat = a.subId == nil && !lying && settings.s.showModelHats ? ModelHat(model: s.model ?? s.usage?.model) : nil
             let sweating = a.subId == nil && !lying && facing != .up && activity != .sleeping && activity != .compacting
                 && (settings.contextFraction(s).map { $0 >= 0.8 } ?? false)
             draws.append((z, {
                 p.image(img, rect.minX, rect.minY, rect.width, rect.height, flipX: flip, smooth: !skin.isSheet)
+                hat?.draw(p, on: img, in: rect, flip: flip)
                 if let rest, facing != .up { OfficeArt.held(rest.pastime, p, rect, sheet: skin.isSheet, tick: self.tick) }
                 if sweating { OfficeArt.sweat(p, rect, sheet: skin.isSheet, tick: self.tick) }
                 if reaction == .celebrate { OfficeArt.confetti(p, rect, tick: self.tick) }

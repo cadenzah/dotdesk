@@ -119,6 +119,8 @@ struct AppSettings: Codable {
     /// Claude's context window: 0 guesses from the model and what has been seen, else 200_000 or 1_000_000.
     var contextWindow = 0
     var showContextGauge = true
+    /// A hat for the Claude model each agent runs on (crown for Opus, beret for Sonnet…).
+    var showModelHats = true
     var sleepAfterMinutes: Double = 5
     var forgetAfterMinutes: Double = 240
 }
