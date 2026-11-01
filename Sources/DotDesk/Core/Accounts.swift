@@ -96,8 +96,7 @@ enum ProjectResolver {
     }
 
     static func defaultName(for key: String) -> String {
-        if key == ClaudeAppChatWatcher.projectKey { return L("Claude 채팅", "Claude chats") }
-        return (key as NSString).lastPathComponent
+        (key as NSString).lastPathComponent
     }
 
     private static func resolve(_ cwd: String) -> String {
