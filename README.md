@@ -2,12 +2,12 @@
 
 **English** | [한국어](README.ko.md)
 
-A macOS app that shows the AI coding agents working on your Mac (Claude Code, Codex) as cute pixel-art characters.
+A macOS app that shows the AI coding agents working on your Mac (Claude Code, Codex, Kiro) as cute pixel-art characters.
 
 - **Desktop pet** — Active agents wander along the bottom of your screen, then stop to type or read documents when they start working. A speech-bubble icon shows what they're doing right now (reading, searching, writing, running commands, browsing the web, calling teammates, planning…). While resting, they take turns napping, sipping coffee, gaming, reading and stretching.
 - **Office window** — In a small window in the corner of your screen, agents sit and work in areas grouped by project. Their monitors change with what they're doing, and subagents appear as teammates in front of the desk. After a while of inactivity, they take a break and pick something at random — a nap on the sofa, reading on the beanbag, coffee, watering the plant, gazing out the window, chatting in pairs by a window, stretching — and switch to something else after a bit. When a new session starts in the same project, a character whose session ended or is resting takes it on (so `/clear` keeps the same face). If the session they left gets busy again, a free colleague or a new character steps in.
 - **Answer permission requests** — Allow or deny from the pet's speech bubble without switching to the agent's window, or auto-approve (bypass). Auto-approve turns off permission checks entirely, so read [the caveats](#before-turning-on-auto-approve) first.
-- **Jump to the agent's window** — Click a pet, or double-click a character in the office, to bring forward the terminal or app that agent runs in. Terminal and iTerm2 switch to the exact tab (macOS asks once to let DotDesk control them), and tmux panes are selected too. In other apps such as VS Code, Cursor or Ghostty the app comes forward, and with Accessibility access (Settings → **Integrations**) DotDesk raises the window named after the project.
+- **Jump to the agent's window** — Click a pet, or double-click a character in the office, to bring forward the terminal or app that agent runs in. Terminal and iTerm2 switch to the exact tab (macOS asks once to let DotDesk control them), and tmux panes are selected too. In other apps such as VS Code, Cursor, Kiro or Ghostty the app comes forward, and with Accessibility access (Settings → **Integrations**) DotDesk raises the window named after the project.
 - **Sounds and notifications** — A sound (and optionally a macOS notification) when an agent waits for permission, asks a question, or finishes a task that took a while. Click the notification to jump to the agent's window, or allow/deny right from it when answering from the speech bubble. If you don't answer for a minute, the pet walks to the middle of the screen, waves and calls once more. It stays quiet while the agent's app is in front, and the menu bar has a quick **Alert sound** toggle. Set it up in the **Alerts** tab in Settings.
 - **Reactions** — Characters shake with a dizzy bubble when a tool call fails, cheer with a sparkle when a test run passes (pytest, jest, `swift test`, `go test`, `npm test`…) and show a red ✕ when it fails, and throw confetti after finishing a task that took over five minutes.
 - **Daily log** — Keeps a tally of each day: busy time (hour by hour and per project), requests, finished tasks, edited files, test results and tokens. A whiteboard on the office wall charts the last 12 hours, and once you're done for the day (after 6 pm, when every agent has been idle for 20 minutes) a summary card opens with the day and the past week. Open it any time from the menu bar (**Today's log…**) or by clicking the whiteboard.
@@ -72,10 +72,12 @@ To try it without a real agent, turn on **Demo agent** in the menu bar, or run `
 ```
 Claude Code / Codex ──hook──▶ ~/.dotdesk/dotdesk-hook.sh ──HTTP(127.0.0.1)──▶ DotDesk
 Codex session logs (~/.codex/sessions/**/rollout-*.jsonl) ───────tail───────▶ DotDesk
+Kiro session logs (~/.kiro/sessions/*/sess_*/messages.jsonl) ─────tail───────▶ DotDesk
 ```
 
 - **Claude Code**: Registers the relay script under `hooks` in `~/.claude/settings.json` (or each `CLAUDE_CONFIG_DIR`). On first install it backs up the file to `settings.json.dotdesk.backup`, and on removal it deletes only entries containing `dotdesk-hook`. The Code tab in the Claude desktop app uses the same settings, so it shows up too.
 - **Codex**: Registers in `~/.codex/hooks.json` in the same format. Codex only runs new hooks once they're trusted, so approve them via `/hooks` in `codex`. Even without hooks, DotDesk reads the session log files to show activity (permission responses aren't available in that case).
+- **Kiro**: Reads the agent's session logs in `~/.kiro/sessions`, written by both the Kiro IDE and `kiro-cli`, so there's nothing to install. Requests, tool use, permission waits and finished turns show up, but permission requests have to be answered in Kiro. Turn it off in Settings → **Integrations**.
 - If DotDesk isn't running, the relay script exits immediately without printing anything, so your agents behave as usual.
 - The event server listens only on `127.0.0.1` and accepts requests only with the token in `~/.dotdesk/token` (permissions 0600).
 
@@ -102,12 +104,13 @@ Auto-approve is close to Claude Code's `--dangerously-skip-permissions`: everyth
 
 - Claude: Reads the email and organization name from `oauthAccount` in `$CLAUDE_CONFIG_DIR/.claude.json` (default `~/.claude.json`).
 - Codex: Reads only the email, plan, and organization name from the ID token in `$CODEX_HOME/auth.json`.
+- Kiro: Shown as one account per Kiro folder (`~/.kiro`); no sign-in details are read.
 - Tokens themselves are never stored or sent anywhere. You can set names and flag colors in the **Accounts** tab in Settings.
 
 ## Assets and licenses
 
 - DotDesk's code and its built-in pixel characters and furniture are hand-drawn and released under the [MIT License](LICENSE).
-- **Pixel Agents assets** are not bundled with the app. DotDesk reads the characters and some furniture (desk, plant, sofa, clock) from the Pixel Agents extension folder installed in VS Code (or Cursor/Windsurf). The furniture can be turned off in Settings. Pixel Agents is MIT-licensed, and its characters are based on [JIK-A-4's MetroCity pack (CC0)](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack).
+- **Pixel Agents assets** are not bundled with the app. DotDesk reads the characters and some furniture (desk, plant, sofa, clock) from the Pixel Agents extension folder installed in VS Code (or Cursor/Windsurf/Kiro). The furniture can be turned off in Settings. Pixel Agents is MIT-licensed, and its characters are based on [JIK-A-4's MetroCity pack (CC0)](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack).
 - **Pokémon sprites** are the property of Nintendo/Game Freak/The Pokémon Company and are not bundled with the app. DotDesk reads the local files PokeTokenBar downloaded from [PokeAPI/sprites](https://github.com/PokeAPI/sprites) (`~/Library/Application Support/PokeTokenBar/sprites`) as-is. Please use them for personal, non-commercial purposes only.
 - To use a different character sheet, point Settings to a folder containing `characters/char_N.png` in the Pixel Agents format (16×32 frames; rows: down/up/right; columns: walk1, stand, walk2, type1, type2, read1, read2).
 
@@ -118,7 +121,7 @@ DotDesk is an unofficial personal project. It is not affiliated with or endorsed
 ```
 Sources/DotDesk/
   App/       App entry point, menu bar, dev renderer
-  Core/      Event server, hook install, session state, account/project detection, Codex log watcher, settings
+  Core/      Event server, hook install, session state, account/project detection, Codex/Kiro log watchers, settings
   Sprites/   Pixel canvas, built-in characters/furniture/icons, asset loader
   UI/        Pet, office simulation/renderer, settings screens
 scripts/

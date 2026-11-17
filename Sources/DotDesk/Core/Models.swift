@@ -1,12 +1,21 @@
 import Foundation
 
 enum Provider: String, Codable, CaseIterable {
-    case claude, codex
+    case claude, codex, kiro
 
     var displayName: String {
         switch self {
         case .claude: return "Claude"
         case .codex: return "Codex"
+        case .kiro: return "Kiro"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .claude: return "sparkle"
+        case .codex: return "chevron.left.forwardslash.chevron.right"
+        case .kiro: return "k.circle"
         }
     }
 }

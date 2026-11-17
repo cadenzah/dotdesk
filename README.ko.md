@@ -2,12 +2,12 @@
 
 [English](README.md) | **한국어**
 
-내 Mac에서 일하는 AI 코딩 에이전트(Claude Code, Codex)를 귀여운 도트 캐릭터로 보여주는 macOS 앱.
+내 Mac에서 일하는 AI 코딩 에이전트(Claude Code, Codex, Kiro)를 귀여운 도트 캐릭터로 보여주는 macOS 앱.
 
 - **데스크톱 펫** — 지금 일하는 에이전트가 화면 아래를 돌아다니다가, 일을 시작하면 멈춰서 타이핑하거나 문서를 읽어요. 말풍선 아이콘으로 지금 하는 일(읽기·검색·작성·실행·웹·팀원 호출·계획…)을 보여줘요. 쉬는 동안에는 낮잠, 커피, 게임, 독서, 스트레칭을 번갈아 해요.
 - **사무실 창** — 화면 구석의 작은 창에 여러 에이전트가 프로젝트별 구역으로 나뉘어 앉아 일해요. 모니터 화면도 하는 일에 따라 바뀌고, 서브에이전트는 책상 앞에 팀원으로 나타나요. 한동안 조용하면 쉬러 가서 소파 낮잠, 빈백에서 책 읽기, 커피 마시기, 화분 물 주기, 창밖 구경, 창가에서 둘이 수다 떨기, 스트레칭 같은 걸 무작위로 골라 하고, 시간이 지나면 다른 걸 해요. 같은 프로젝트에 새 세션이 생기면 일을 마쳤거나 쉬고 있던 캐릭터가 이어서 맡아요(`/clear` 뒤에도 같은 캐릭터예요). 자리를 넘겨준 세션이 다시 일하면 쉬는 동료나 새 캐릭터가 들어와요.
 - **권한 요청 응답** — 에이전트 창으로 가지 않고 펫 말풍선에서 허용/거부하거나, 자동 허용(바이패스)할 수 있어요. 자동 허용은 모든 권한 확인을 끄는 것과 같으니 [주의사항](#자동-허용을-켜기-전에)을 먼저 읽어 주세요.
-- **에이전트 창으로 가기** — 펫을 클릭하거나 사무실에서 캐릭터를 더블클릭하면 그 에이전트가 일하는 터미널이나 앱 창을 앞으로 가져와요. Terminal과 iTerm2는 탭까지 정확히 고르고(처음 한 번 제어 권한을 물어봐요), tmux 안이면 그 창과 패널도 골라요. VS Code·Cursor·Ghostty 같은 다른 앱은 앱을 앞으로 가져오고, 설정 **연동** 탭에서 손쉬운 사용 권한을 주면 프로젝트 이름이 제목에 든 창을 골라요.
+- **에이전트 창으로 가기** — 펫을 클릭하거나 사무실에서 캐릭터를 더블클릭하면 그 에이전트가 일하는 터미널이나 앱 창을 앞으로 가져와요. Terminal과 iTerm2는 탭까지 정확히 고르고(처음 한 번 제어 권한을 물어봐요), tmux 안이면 그 창과 패널도 골라요. VS Code·Cursor·Kiro·Ghostty 같은 다른 앱은 앱을 앞으로 가져오고, 설정 **연동** 탭에서 손쉬운 사용 권한을 주면 프로젝트 이름이 제목에 든 창을 골라요.
 - **소리와 알림** — 에이전트가 허락을 기다리거나, 질문하거나, 오래 걸린 일을 마치면 소리를 내고 macOS 알림도 띄울 수 있어요. 알림을 누르면 그 에이전트의 창으로 가고, 펫 말풍선 응답 모드에서는 알림에서 바로 허용·거부할 수 있어요. 1분 동안 답이 없으면 펫이 화면 가운데로 걸어와 손을 흔들며 한 번 더 불러요. 에이전트 앱을 보고 있을 때는 조용하고, 메뉴바에서 **알림 소리**를 바로 끌 수 있어요. 설정 **알림** 탭에서 고를 수 있어요.
 - **성공·실패 리액션** — 도구 호출이 실패하면 어지러운 말풍선과 함께 몸을 흔들고, 테스트(pytest, jest, `swift test`, `go test`, `npm test` 등)가 통과하면 반짝이며 환호하고, 실패하면 빨간 ✕를 띄워요. 5분 넘게 걸린 일을 마치면 색종이를 뿌려요.
 - **하루 기록과 퇴근 요약** — 날마다 일한 시간(시간대별·프로젝트별), 요청, 끝낸 작업, 고친 파일, 테스트 결과, 토큰을 모아요. 사무실 벽 화이트보드에 최근 12시간을 그래프로 그리고, 퇴근할 때(오후 6시가 지나 모든 에이전트가 20분 동안 쉬면) 오늘과 지난 7일을 담은 요약 카드를 띄워요. 메뉴바의 **오늘의 기록…**이나 화이트보드를 눌러 언제든 볼 수 있어요.
@@ -72,10 +72,12 @@ open build/DotDesk.app
 ```
 Claude Code / Codex ──hook──▶ ~/.dotdesk/dotdesk-hook.sh ──HTTP(127.0.0.1)──▶ DotDesk
 Codex 세션 기록(~/.codex/sessions/**/rollout-*.jsonl) ──────────tail──────────▶ DotDesk
+Kiro 세션 기록(~/.kiro/sessions/*/sess_*/messages.jsonl) ─────────tail──────────▶ DotDesk
 ```
 
 - **Claude Code**: `~/.claude/settings.json`(또는 각 `CLAUDE_CONFIG_DIR`)의 `hooks`에 릴레이 스크립트를 등록해요. 처음 설치할 때 `settings.json.dotdesk.backup`으로 백업하고, 지울 때는 `dotdesk-hook`이 들어간 항목만 지워요. Claude 데스크톱 앱의 Code 탭도 같은 설정을 쓰므로 함께 보여요.
 - **Codex**: `~/.codex/hooks.json`에 같은 형식으로 등록해요. Codex는 새 훅을 신뢰해야 실행하므로 `codex`의 `/hooks`에서 승인해 주세요. 훅 없이도 세션 기록 파일을 읽어서 활동을 보여줘요(이때는 권한 응답이 안 돼요).
+- **Kiro**: Kiro IDE와 `kiro-cli`가 함께 쓰는 `~/.kiro/sessions`의 세션 기록을 읽어서 설치할 것이 없어요. 요청, 도구 사용, 허락 대기, 턴 완료가 보이지만 허락 요청은 Kiro에서 답해야 해요. 설정 → **연동**에서 끌 수 있어요.
 - 릴레이 스크립트는 DotDesk가 꺼져 있으면 아무것도 출력하지 않고 바로 끝나요. 에이전트는 평소처럼 동작해요.
 - 이벤트 서버는 `127.0.0.1`에서만 열리고, `~/.dotdesk/token`(권한 0600)의 토큰이 맞아야 요청을 받아요.
 
@@ -102,12 +104,13 @@ Codex 세션 기록(~/.codex/sessions/**/rollout-*.jsonl) ───────�
 
 - Claude: `$CLAUDE_CONFIG_DIR/.claude.json`(기본은 `~/.claude.json`)의 `oauthAccount`에서 이메일·조직 이름을 읽어요.
 - Codex: `$CODEX_HOME/auth.json`의 ID 토큰에서 이메일·플랜·조직 이름만 읽어요.
+- Kiro: Kiro 폴더(`~/.kiro`)마다 계정 하나로 보여주고, 로그인 정보는 읽지 않아요.
 - 토큰 자체는 저장하거나 어디로도 보내지 않아요. 설정의 **계정** 탭에서 이름과 깃발 색을 정할 수 있어요.
 
 ## 에셋과 라이선스
 
 - DotDesk 코드와 기본 도트 캐릭터·가구는 직접 그린 것으로 [MIT 라이선스](LICENSE)예요.
-- **Pixel Agents 에셋**은 앱에 포함하지 않아요. VS Code(또는 Cursor·Windsurf)에 설치된 Pixel Agents 확장 프로그램 폴더에서 캐릭터와 일부 가구(책상·화분·소파·시계)를 읽어요. 가구는 설정에서 끌 수 있어요. Pixel Agents는 MIT이고, 캐릭터는 [JIK-A-4의 MetroCity 팩(CC0)](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack)을 바탕으로 해요.
+- **Pixel Agents 에셋**은 앱에 포함하지 않아요. VS Code(또는 Cursor·Windsurf·Kiro)에 설치된 Pixel Agents 확장 프로그램 폴더에서 캐릭터와 일부 가구(책상·화분·소파·시계)를 읽어요. 가구는 설정에서 끌 수 있어요. Pixel Agents는 MIT이고, 캐릭터는 [JIK-A-4의 MetroCity 팩(CC0)](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack)을 바탕으로 해요.
 - **포켓몬 스프라이트**는 Nintendo/Game Freak/The Pokémon Company의 저작물이라 앱에 포함하지 않아요. PokeTokenBar가 [PokeAPI/sprites](https://github.com/PokeAPI/sprites)에서 내려받아 둔 로컬 파일(`~/Library/Application Support/PokeTokenBar/sprites`)을 그대로 읽어요. 개인적·비상업적 용도로만 써 주세요.
 - 다른 캐릭터 시트를 쓰려면 Pixel Agents 형식(16×32 프레임, 행: 아래/위/오른쪽, 열: 걷기1·서기·걷기2·타이핑1·타이핑2·읽기1·읽기2)의 `characters/char_N.png`가 든 폴더를 설정에서 지정하면 돼요.
 
@@ -118,7 +121,7 @@ DotDesk는 비공식 개인 프로젝트예요. Anthropic, OpenAI, Nintendo, Gam
 ```
 Sources/DotDesk/
   App/       앱 진입점, 메뉴바, 개발용 렌더러
-  Core/      이벤트 서버, 훅 설치, 세션 상태, 계정·프로젝트 판별, Codex 기록 감시, 설정
+  Core/      이벤트 서버, 훅 설치, 세션 상태, 계정·프로젝트 판별, Codex·Kiro 기록 감시, 설정
   Sprites/   도트 캔버스, 기본 캐릭터·가구·아이콘, 에셋 로더
   UI/        펫, 사무실 시뮬레이션/렌더러, 설정 화면
 scripts/

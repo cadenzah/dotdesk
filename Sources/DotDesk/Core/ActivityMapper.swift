@@ -1,21 +1,23 @@
 import Foundation
 
-/// Turns a tool call (Claude Code or Codex naming) into an activity and a short human-readable detail.
+/// Turns a tool call (Claude Code, Codex or Kiro naming) into an activity and a short human-readable detail.
 enum ActivityMapper {
     static func activity(forTool tool: String, input: [String: Any]) -> (Activity, String) {
         let lower = tool.lowercased()
         let a: Activity
         switch tool {
-        case "Read", "NotebookRead", "Skill", "view_image", "read_file":
+        case "Read", "NotebookRead", "Skill", "view_image", "read_file", "fs_read", "read_multiple_files":
             a = .reading
-        case "Grep", "Glob", "LS", "ToolSearch", "LSP", "list_dir", "grep_files":
+        case "Grep", "Glob", "LS", "ToolSearch", "LSP", "list_dir", "grep_files",
+             "list_directory", "grep_search", "file_search":
             a = .searching
-        case "Edit", "Write", "MultiEdit", "NotebookEdit", "apply_patch", "str_replace_editor":
+        case "Edit", "Write", "MultiEdit", "NotebookEdit", "apply_patch", "str_replace_editor",
+             "str_replace", "fs_write", "write_file", "delete_file":
             a = .typing
         case "Bash", "BashOutput", "KillShell", "KillBash", "PowerShell", "Monitor",
-             "exec_command", "shell", "local_shell", "write_stdin", "exec", "unified_exec":
+             "exec_command", "shell", "local_shell", "write_stdin", "exec", "unified_exec", "execute_bash":
             a = .running
-        case "WebFetch", "WebSearch", "web_search", "web_fetch":
+        case "WebFetch", "WebSearch", "web_search", "web_fetch", "remote_web_search":
             a = .browsing
         case "Task", "Agent", "spawn_agent", "SendMessage", "TeamCreate", "send_input", "wait":
             a = .delegating
@@ -45,7 +47,7 @@ enum ActivityMapper {
 
         if let p = str("file_path") ?? str("notebook_path") ?? str("path") { return file(p) }
         switch tool {
-        case "Bash", "PowerShell", "exec_command", "shell", "local_shell", "unified_exec":
+        case "Bash", "PowerShell", "exec_command", "shell", "local_shell", "unified_exec", "execute_bash":
             if let d = str("description") { return truncate(d, 40) }
             if let c = str("command") ?? str("cmd") { return truncate(c, 40) }
             if let arr = input["command"] as? [String] { return truncate(arr.joined(separator: " "), 40) }
@@ -60,9 +62,11 @@ enum ActivityMapper {
             return L("패치", "Patch")
         case "Grep", "Glob", "grep_files":
             if let p = str("pattern") { return truncate(p, 32) }
+        case "grep_search", "file_search":
+            if let q = str("query") { return truncate(q, 32) }
         case "WebFetch", "web_fetch":
             if let u = str("url"), let host = URL(string: u)?.host { return host }
-        case "WebSearch", "web_search":
+        case "WebSearch", "web_search", "remote_web_search":
             if let q = str("query") { return truncate(q, 32) }
         case "Task", "Agent", "spawn_agent":
             if let d = str("description") { return truncate(d, 32) }
@@ -122,7 +126,7 @@ enum ActivityMapper {
     /// Files a tool call writes to: the path for edit tools, every file named in an apply_patch.
     static func editedFiles(tool: String, input: [String: Any]) -> [String] {
         switch tool {
-        case "Edit", "Write", "MultiEdit", "NotebookEdit", "str_replace_editor":
+        case "Edit", "Write", "MultiEdit", "NotebookEdit", "str_replace_editor", "str_replace", "fs_write", "write_file":
             return [input["file_path"] as? String ?? input["notebook_path"] as? String ?? input["path"] as? String].compactMap { $0 }
         case "apply_patch":
             let patch = input["command"] as? String ?? input["input"] as? String ?? ""

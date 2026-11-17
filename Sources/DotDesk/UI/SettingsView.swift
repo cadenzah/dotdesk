@@ -332,7 +332,7 @@ struct AccountsTab: View {
                 Section {
                     let binding = Binding(get: { settings.s.accounts[key] ?? AccountSettings() }, set: { settings.s.accounts[key] = $0 })
                     HStack {
-                        Image(systemName: info.provider == .claude ? "sparkle" : "chevron.left.forwardslash.chevron.right")
+                        Image(systemName: info.provider.symbolName)
                         TextField(L("표시 이름", "Display name"), text: Binding(get: { binding.wrappedValue.label ?? "" },
                                                          set: { binding.wrappedValue.label = $0.isEmpty ? nil : $0 }),
                                   prompt: Text(info.defaultLabel))
@@ -566,11 +566,18 @@ struct IntegrationsTab: View {
                         "Codex asks you to review new hooks before first use. Run codex in a terminal and trust the DotDesk hooks in /hooks."))
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section("Kiro") {
+                Toggle(L("Kiro 세션 기록 파일 지켜보기 (IDE와 kiro-cli, 권한 응답은 불가)", "Watch Kiro session log files (IDE and kiro-cli; can't answer permission requests)"),
+                       isOn: $settings.s.watchKiroSessions)
+                Text(L("\(abbreviatePath(expandPath(settings.s.kiroHome)))/sessions의 대화 기록을 읽어서 Kiro 에이전트가 하는 일을 보여줘요. 설치할 훅은 없고, 허락 요청은 Kiro 창에서 답해 주세요.",
+                        "Reads the chat logs in \(abbreviatePath(expandPath(settings.s.kiroHome)))/sessions to show what the Kiro agent is doing. There are no hooks to install; answer permission requests in Kiro."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section(L("에이전트 창으로 가기", "Jump to agent window")) {
                 LabeledContent("Terminal · iTerm2") {
                     Text(L("탭까지 정확히 찾아요", "Finds the exact tab")).foregroundStyle(.secondary)
                 }
-                LabeledContent(L("그 밖의 앱 (VS Code, Cursor, Ghostty…)", "Other apps (VS Code, Cursor, Ghostty…)")) {
+                LabeledContent(L("그 밖의 앱 (VS Code, Cursor, Kiro, Ghostty…)", "Other apps (VS Code, Cursor, Kiro, Ghostty…)")) {
                     if axTrusted {
                         Label(L("프로젝트 창을 찾아요", "Finds the project window"), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     } else {

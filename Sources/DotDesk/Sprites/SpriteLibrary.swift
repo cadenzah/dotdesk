@@ -268,7 +268,7 @@ final class SpriteLibrary: ObservableObject {
     /// Pixel Agents (MIT, characters based on the CC0 MetroCity pack) ships its assets inside the editor extension.
     static func detectPixelAgents() -> URL? {
         let home = NSHomeDirectory()
-        let roots = [".vscode/extensions", ".vscode-insiders/extensions", ".cursor/extensions", ".windsurf/extensions"]
+        let roots = [".vscode/extensions", ".vscode-insiders/extensions", ".cursor/extensions", ".windsurf/extensions", ".kiro/extensions"]
         var found: [URL] = []
         for r in roots {
             let dir = URL(fileURLWithPath: home).appendingPathComponent(r)

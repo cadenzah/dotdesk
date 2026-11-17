@@ -24,7 +24,14 @@ enum AccountResolver {
         switch provider {
         case .claude: return claude(configDir: configDir)
         case .codex: return codex(home: configDir)
+        case .kiro: return kiro(home: configDir)
         }
+    }
+
+    /// Kiro signs in through AWS and keeps no email or organization on disk worth showing; one account per home.
+    private static func kiro(home: String?) -> AccountInfo {
+        let dir = home.map(expandPath) ?? NSHomeDirectory() + "/.kiro"
+        return AccountInfo(key: "kiro:\(dir)", provider: .kiro, email: nil, orgName: nil, plan: nil, configDir: dir)
     }
 
     /// Claude Code keeps the logged-in account in ~/.claude.json (default) or $CLAUDE_CONFIG_DIR/.claude.json.

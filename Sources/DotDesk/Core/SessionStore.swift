@@ -253,15 +253,17 @@ final class SessionStore: ObservableObject {
         sessions[key]?.usage = usage
     }
 
-    /// Activity reported from a Codex rollout file. Ignored once that session reports through hooks.
-    func applyRollout(sessionId: String, cwd: String?, home: String, update: (inout AgentSession) -> Void) {
-        let key = "codex:\(sessionId)"
+    /// Activity read from an agent's own session log (Codex rollouts, Kiro sessions). Ignored once that
+    /// session reports through hooks.
+    func applyRollout(provider: Provider = .codex, sessionId: String, cwd: String?, home: String, update: (inout AgentSession) -> Void) {
+        let key = "\(provider.rawValue):\(sessionId)"
         let isNew = sessions[key] == nil
-        var s = sessions[key] ?? makeSession(key: key, provider: .codex, sessionId: sessionId, cwd: cwd)
+        var s = sessions[key] ?? makeSession(key: key, provider: provider, sessionId: sessionId, cwd: cwd)
         if s.viaHooks { return }
         if s.cwd == nil, let cwd { updateCwd(&s, cwd) }
         if s.account == nil {
-            let acc = AccountResolver.resolve(provider: .codex, configDir: home == NSHomeDirectory() + "/.codex" ? nil : home)
+            let isDefault = home == NSHomeDirectory() + "/.\(provider.rawValue)"
+            let acc = AccountResolver.resolve(provider: provider, configDir: isDefault ? nil : home)
             s.account = acc
             settings.rememberAccount(acc)
         }
